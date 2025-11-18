@@ -39,7 +39,7 @@ final class HighlightView: NSView {
 
         ctx.clear(bounds)
 
-        let base = (isPulsing ? clickColor : baseColor).withAlphaComponent(0.9)
+        let base = (isPulsing ? clickColor : baseColor).withAlphaComponent(0.7)
 
         // Параметры линий
         let outerLineWidth: CGFloat = 6
@@ -54,9 +54,9 @@ final class HighlightView: NSView {
         let size = min(rect.width, rect.height) * currentScale
 
         // Включаем свечение
-        ctx.setShadow(offset: .zero,
-                      blur: 12,
-                      color: base.withAlphaComponent(0.7).cgColor)
+//        ctx.setShadow(offset: .zero,
+//                      blur: 12,
+//                      color: base.withAlphaComponent(0.7).cgColor)
 
         // Координатная система: центр в середине view + поворот на 45°
         ctx.saveGState()
@@ -66,7 +66,7 @@ final class HighlightView: NSView {
         // Квадрат с центром в (0,0)
         let squareRect = CGRect(x: -size / 2, y: -size / 2,
                                 width: size, height: size)
-        let cornerRadius = size / 3   // можно поиграть этим значением
+        let cornerRadius = size / 2.5   // можно поиграть этим значением
 
         // ==== ВНЕШНЕЕ КОЛЬЦО ====
         let outerPath = CGPath(roundedRect: squareRect,

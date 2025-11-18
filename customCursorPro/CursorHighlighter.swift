@@ -1,11 +1,3 @@
-//
-//  CursorHighlighter.swift
-//  customCursorPro
-//
-//  Created by Alexander on 18.11.2025.
-//
-
-
 import Cocoa
 
 final class CursorHighlighter {
@@ -13,8 +5,8 @@ final class CursorHighlighter {
     private var window: NSWindow?
     private var highlightView: HighlightView?
     private var mouseMoveMonitor: Any?
-    private var clickMonitor: Any?
-    private var releaseMonitor: Any?
+    private var clickDownMonitor: Any?
+    private var clickUpMonitor: Any?
 
     private let diameter: CGFloat = 90
 
@@ -35,15 +27,21 @@ final class CursorHighlighter {
         if let monitor = mouseMoveMonitor {
             NSEvent.removeMonitor(monitor)
         }
-        if let monitor = clickMonitor {
+        if let monitor = clickDownMonitor {
             NSEvent.removeMonitor(monitor)
         }
+        if let monitor = clickUpMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+
         mouseMoveMonitor = nil
-        clickMonitor = nil
-        releaseMonitor = nil
+        clickDownMonitor = nil
+        clickUpMonitor = nil
+
         window?.orderOut(nil)
     }
 
+    // Создаём прозрачное окно поверх всех экранов/спейсов
     private func createWindowIfNeeded() {
         guard window == nil else { return }
 
@@ -55,54 +53,71 @@ final class CursorHighlighter {
             height: diameter
         )
 
-        let win = NSWindow(
+        // ВАЖНО: используем NSPanel, а не NSWindow
+        let panel = NSPanel(
             contentRect: initialRect,
-            styleMask: .borderless,
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
-        win.isOpaque = false
-        win.backgroundColor = .clear
-        win.hasShadow = false
-        win.ignoresMouseEvents = true
-        win.level = .screenSaver  // поверх всего
-        win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+
+        // Уровень поверх всего
+        panel.level = .screenSaver
+
+        // Поведение в Spaces / full screen
+        panel.collectionBehavior = [
+            .canJoinAllSpaces,    // есть во всех рабочих столах и полноэкранных спейсах
+            .fullScreenAuxiliary, // может показываться вместе с fullscreen окнами
+            .ignoresCycle         // не мешает cmd+`
+        ]
 
         let view = HighlightView(frame: NSRect(x: 0, y: 0, width: diameter, height: diameter))
         view.wantsLayer = true
 
-        win.contentView = view
-        win.orderFrontRegardless()
+        panel.contentView = view
+        panel.orderFrontRegardless()
 
-        self.window = win
+        self.window = panel
         self.highlightView = view
     }
 
+
     private func startMonitoring() {
-        // Глобальный монитор движения мыши
-        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
-            self?.updatePosition(with: event)
+        // Двигаем за мышью по всем экранам
+        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]
+        ) { [weak self] _ in
+            self?.updatePositionToMouse()
         }
 
-        clickMonitor = NSEvent.addGlobalMonitorForEvents(
+        // mouseDown → сжимаем фигуру
+        clickDownMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown]
-        ) { [weak self] event in
-            self?.handleMouseDown()
+        ) { [weak self] _ in
+            self?.highlightView?.beginClick()
         }
 
-        releaseMonitor = NSEvent.addGlobalMonitorForEvents(
+        // mouseUp → возвращаем в нормальный размер
+        clickUpMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseUp]
-        ) { [weak self] event in
-            self?.handleMouseUp()
+        ) { [weak self] _ in
+            self?.highlightView?.endClick()
         }
     }
 
-    private func updatePosition(with event: NSEvent) {
+    // Позиционирование окна по глобальным координатам мыши
+    private func updatePositionToMouse() {
         guard let window = window else { return }
 
-        // Координаты в системе окон AppKit — уже глобальные для главного экрана
-        let location = event.locationInWindow
+        // Глобальные координаты курсора (одна система для всех мониторов)
+        let location = NSEvent.mouseLocation
 
         let newOrigin = NSPoint(
             x: location.x - diameter / 2,
@@ -111,18 +126,5 @@ final class CursorHighlighter {
 
         window.setFrameOrigin(newOrigin)
         window.orderFrontRegardless()
-    }
-
-    private func handleClick(event: NSEvent) {
-        guard let view = highlightView else { return }
-        view.pulse()
-    }
-    
-    func handleMouseDown() {
-        highlightView?.beginClick()
-    }
-
-    func handleMouseUp() {
-        highlightView?.endClick()
     }
 }
