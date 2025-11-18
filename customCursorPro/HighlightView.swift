@@ -3,9 +3,9 @@ import Cocoa
 final class HighlightView: NSView {
 
     // Базовый цвет подсветки
-    private let baseColor = NSColor.systemBlue
+    private let baseColor = NSColor.systemIndigo
     // Цвет при клике
-    private let clickColor = NSColor.systemPink
+    private let clickColor = NSColor.systemGreen
 
     // Текущее состояние
     private var isPulsing = false
@@ -42,8 +42,8 @@ final class HighlightView: NSView {
         let base = (isPulsing ? clickColor : baseColor).withAlphaComponent(0.7)
 
         // Параметры линий
-        let outerLineWidth: CGFloat = 6
-        let innerLineWidth: CGFloat = 10
+        let outerLineWidth: CGFloat = 10
+        let innerLineWidth: CGFloat = 8
 
         // Немного отступим от краёв
         let inset: CGFloat = 12
@@ -66,7 +66,7 @@ final class HighlightView: NSView {
         // Квадрат с центром в (0,0)
         let squareRect = CGRect(x: -size / 2, y: -size / 2,
                                 width: size, height: size)
-        let cornerRadius = size / 2.5   // можно поиграть этим значением
+        let cornerRadius = size / 2.7   // можно поиграть этим значением
 
         // ==== ВНЕШНЕЕ КОЛЬЦО ====
         let outerPath = CGPath(roundedRect: squareRect,
@@ -80,7 +80,7 @@ final class HighlightView: NSView {
         ctx.strokePath()
 
         // ==== ВНУТРЕННЕЕ КОЛЬЦО ====
-        let innerInset: CGFloat = 14   // расстояние между кольцами
+        let innerInset: CGFloat = 8   // расстояние между кольцами
         let innerRect = squareRect.insetBy(dx: innerInset, dy: innerInset)
 
         let innerPath = CGPath(roundedRect: innerRect,
