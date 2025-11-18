@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct customCursorProApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        // Убираем главное окно — приложение живёт только в меню-баре
+        Settings {
+            EmptyView()
         }
     }
 }
