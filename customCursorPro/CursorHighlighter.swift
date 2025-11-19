@@ -179,24 +179,16 @@ final class CursorHighlighter {
 
         self.window = panel
         self.highlightView = view
-        
-        // Устанавливаем обработчик кликов для разморозки
-        view.onClick = { [weak self] in
-            if self?.isFrozen == true {
-                self?.unfreezeCursor()
-            }
-        }
     }
 
 
     private func startMonitoring() {
-        // Двигаем за мышью по всем экранам (только если не заморожен)
+        // Двигаем за мышью по всем экранам
         mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]
         ) { [weak self] _ in
-            guard let self = self, !self.isFrozen else { return }
             // Показываем курсор при движении мыши, если он был скрыт для ввода текста
-            self.updatePositionToMouse()
+            self?.updatePositionToMouse()
         }
 
         // Левая кнопка мыши: mouseDown (для визуального эффекта)
@@ -213,14 +205,14 @@ final class CursorHighlighter {
             self?.highlightView?.endClick()
         }
         
-        // Колесико мыши (средняя кнопка): нажатие для заморозки курсора
+        // Колесико мыши (средняя кнопка): нажатие для открытия меню
         middleButtonMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.otherMouseDown]
         ) { [weak self] event in
             guard let self = self else { return }
             // Проверяем, что это именно колесико (buttonNumber == 2)
-            if event.buttonNumber == 2 && !self.isFrozen {
-                self.freezeCursor()
+            if event.buttonNumber == 2 {
+                self.showMenu()
             }
         }
         
@@ -276,53 +268,8 @@ final class CursorHighlighter {
         }
     }
     
-    private func freezeCursor() {
-        isFrozen = true
-        frozenPosition = NSEvent.mouseLocation
-        
-        // Фиксируем позицию окна курсора
-        if let frozenPos = frozenPosition, let window = window {
-            let newOrigin = NSPoint(
-                x: frozenPos.x - diameter / 2,
-                y: frozenPos.y - diameter / 2
-            )
-            window.setFrameOrigin(newOrigin)
-        }
-        
-        // Останавливаем отслеживание движения мыши
-        if let monitor = mouseMoveMonitor {
-            NSEvent.removeMonitor(monitor)
-            mouseMoveMonitor = nil
-        }
-        
-        // Делаем окно курсора кликабельным
-        window?.ignoresMouseEvents = false
-        
-        // Показываем меню
-        showMenu()
-    }
-    
-    private func unfreezeCursor() {
-        isFrozen = false
-        frozenPosition = nil
-        
-        // Возвращаем отслеживание движения мыши
-        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]
-        ) { [weak self] _ in
-            guard let self = self, !self.isFrozen else { return }
-            self.updatePositionToMouse()
-        }
-        
-        // Делаем окно курсора некликабельным
-        window?.ignoresMouseEvents = true
-        
-        // Скрываем меню
-        hideMenu()
-    }
-    
     private func showMenu() {
-        guard let frozenPos = frozenPosition else { return }
+        let currentPos = NSEvent.mouseLocation
         
         if menuWindow == nil {
             createMenuWindow()
@@ -332,21 +279,21 @@ final class CursorHighlighter {
         
         // Позиционируем меню справа от курсора
         let menuWidth: CGFloat = 200
-        let menuHeight: CGFloat = 160
+        let menuHeight: CGFloat = 200
         
         // NSEvent.mouseLocation и setFrameOrigin используют одну систему координат:
         // (0,0) находится в левом нижнем углу основного экрана
         // Y увеличивается вверх
         
         // Вычисляем позицию меню справа от курсора
-        var menuX = frozenPos.x + menuOffset
+        var menuX = currentPos.x + menuOffset
         // Центрируем меню по вертикали относительно курсора
-        var menuY = frozenPos.y - menuHeight / 2
+        var menuY = currentPos.y - menuHeight / 2
         
         // Находим экран, на котором находится курсор, для проверки границ
         var targetScreen = NSScreen.main
         for screen in NSScreen.screens {
-            if screen.frame.contains(frozenPos) {
+            if screen.frame.contains(currentPos) {
                 targetScreen = screen
                 break
             }
@@ -358,7 +305,7 @@ final class CursorHighlighter {
             // Проверяем, не выходит ли меню за правый край экрана
             if menuX + menuWidth > screenFrame.maxX {
                 // Если выходит, показываем слева от курсора
-                menuX = frozenPos.x - menuWidth - menuOffset
+                menuX = currentPos.x - menuWidth - menuOffset
             }
             
             // Проверяем, не выходит ли меню за левый край экрана
@@ -390,7 +337,7 @@ final class CursorHighlighter {
     
     private func createMenuWindow() {
         let menuWidth: CGFloat = 200
-        let menuHeight: CGFloat = 160
+        let menuHeight: CGFloat = 200
         
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: menuWidth, height: menuHeight),
@@ -430,6 +377,9 @@ final class CursorHighlighter {
         menuView.onCreateNote = { [weak self] in
             self?.showNoteInputWindow()
         }
+        menuView.onClose = { [weak self] in
+            self?.hideMenu()
+        }
         
         panel.contentView = menuView
         self.menuWindow = panel
@@ -440,12 +390,12 @@ final class CursorHighlighter {
         if let safariURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
             NSWorkspace.shared.open(safariURL)
         }
-        unfreezeCursor()
+        hideMenu()
     }
     
     private func showNotesViewWindow() {
-        // Размораживаем курсор перед открытием окна просмотра
-        unfreezeCursor()
+        // Закрываем меню перед открытием окна просмотра
+        hideMenu()
         
         // Создаем окно просмотра заметок, если его еще нет
         if notesViewWindow == nil {
@@ -484,12 +434,12 @@ final class CursorHighlighter {
         if let calcURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.calculator") {
             NSWorkspace.shared.open(calcURL)
         }
-        unfreezeCursor()
+        hideMenu()
     }
     
     private func showNoteInputWindow() {
-        // Размораживаем курсор перед открытием окна ввода
-        unfreezeCursor()
+        // Закрываем меню перед открытием окна ввода
+        hideMenu()
         
         // Создаем окно ввода заметки, если его еще нет
         if noteInputWindow == nil {
@@ -513,7 +463,7 @@ final class CursorHighlighter {
 
     // Позиционирование окна по глобальным координатам мыши
     private func updatePositionToMouse() {
-        guard let window = window, !isFrozen, !isHiddenForTextInput else { return }
+        guard let window = window, !isHiddenForTextInput else { return }
 
         // Глобальные координаты курсора (одна система для всех мониторов)
         let location = NSEvent.mouseLocation
