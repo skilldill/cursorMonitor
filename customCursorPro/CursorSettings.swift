@@ -69,6 +69,9 @@ class CursorSettings {
     private let sizeKey = "cursorSize"
     private let opacityKey = "cursorOpacity"
     private let clickColorKey = "cursorClickColor"
+    private let pencilColorKey = "pencilColor"
+    private let pencilLineWidthKey = "pencilLineWidth"
+    private let pencilOpacityKey = "pencilOpacity"
     
     var color: CursorColor {
         get {
@@ -126,6 +129,48 @@ class CursorSettings {
         }
     }
     
+    var pencilColor: CursorColor {
+        get {
+            if let rawValue = UserDefaults.standard.string(forKey: pencilColorKey),
+               let color = CursorColor(rawValue: rawValue) {
+                return color
+            }
+            return .red // По умолчанию красный
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: pencilColorKey)
+            NotificationCenter.default.post(name: .pencilColorChanged, object: nil)
+        }
+    }
+    
+    var pencilLineWidth: CGFloat {
+        get {
+            let value = UserDefaults.standard.double(forKey: pencilLineWidthKey)
+            if value > 0 {
+                return value
+            }
+            return 3.0 // По умолчанию 3.0
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: pencilLineWidthKey)
+            NotificationCenter.default.post(name: .pencilLineWidthChanged, object: nil)
+        }
+    }
+    
+    var pencilOpacity: CGFloat {
+        get {
+            let value = UserDefaults.standard.double(forKey: pencilOpacityKey)
+            if value > 0 {
+                return value
+            }
+            return 1.0 // По умолчанию 100% непрозрачности
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: pencilOpacityKey)
+            NotificationCenter.default.post(name: .pencilOpacityChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -134,5 +179,8 @@ extension Notification.Name {
     static let cursorSizeChanged = Notification.Name("cursorSizeChanged")
     static let cursorOpacityChanged = Notification.Name("cursorOpacityChanged")
     static let cursorClickColorChanged = Notification.Name("cursorClickColorChanged")
+    static let pencilColorChanged = Notification.Name("pencilColorChanged")
+    static let pencilLineWidthChanged = Notification.Name("pencilLineWidthChanged")
+    static let pencilOpacityChanged = Notification.Name("pencilOpacityChanged")
 }
 

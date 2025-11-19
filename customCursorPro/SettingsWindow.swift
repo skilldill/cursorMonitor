@@ -7,6 +7,11 @@ class SettingsWindow: NSWindowController {
     private var opacitySlider: NSSlider!
     private var opacityLabel: NSTextField!
     private var clickColorPopUp: NSPopUpButton!
+    private var pencilColorPopUp: NSPopUpButton!
+    private var pencilLineWidthSlider: NSSlider!
+    private var pencilLineWidthLabel: NSTextField!
+    private var pencilOpacitySlider: NSSlider!
+    private var pencilOpacityLabel: NSTextField!
     private var previewView: HighlightView!
     private var highlighter: CursorHighlighter?
     
@@ -26,7 +31,7 @@ class SettingsWindow: NSWindowController {
     
     private func createWindow() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 450, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 450, height: 520),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -108,8 +113,71 @@ class SettingsWindow: NSWindowController {
         opacityLabel.alignment = .left
         contentView.addSubview(opacityLabel)
         
+        // Разделитель для настроек карандаша
+        let separator = NSBox(frame: NSRect(x: 20, y: 30, width: 410, height: 1))
+        separator.boxType = .separator
+        contentView.addSubview(separator)
+        
+        // Заголовок настроек карандаша
+        let pencilTitleLabel = NSTextField(labelWithString: "Настройки карандаша:")
+        pencilTitleLabel.frame = NSRect(x: 20, y: 10, width: 200, height: 20)
+        pencilTitleLabel.font = NSFont.boldSystemFont(ofSize: 13)
+        contentView.addSubview(pencilTitleLabel)
+        
+        // Заголовок цвета карандаша
+        let pencilColorLabel = NSTextField(labelWithString: "Цвет карандаша:")
+        pencilColorLabel.frame = NSRect(x: 20, y: 450, width: 150, height: 20)
+        contentView.addSubview(pencilColorLabel)
+        
+        // Выпадающий список цветов карандаша
+        pencilColorPopUp = NSPopUpButton(frame: NSRect(x: 180, y: 445, width: 250, height: 26))
+        setupPencilColorMenu()
+        pencilColorPopUp.target = self
+        pencilColorPopUp.action = #selector(pencilColorChanged)
+        contentView.addSubview(pencilColorPopUp)
+        
+        // Заголовок толщины линии карандаша
+        let pencilLineWidthTitleLabel = NSTextField(labelWithString: "Толщина линии:")
+        pencilLineWidthTitleLabel.frame = NSRect(x: 20, y: 410, width: 150, height: 20)
+        contentView.addSubview(pencilLineWidthTitleLabel)
+        
+        // Слайдер толщины линии карандаша
+        pencilLineWidthSlider = NSSlider(frame: NSRect(x: 180, y: 405, width: 200, height: 20))
+        pencilLineWidthSlider.minValue = 1.0
+        pencilLineWidthSlider.maxValue = 20.0
+        pencilLineWidthSlider.doubleValue = Double(CursorSettings.shared.pencilLineWidth)
+        pencilLineWidthSlider.target = self
+        pencilLineWidthSlider.action = #selector(pencilLineWidthChanged)
+        contentView.addSubview(pencilLineWidthSlider)
+        
+        // Метка значения толщины линии
+        pencilLineWidthLabel = NSTextField(labelWithString: String(format: "%.1f", CursorSettings.shared.pencilLineWidth))
+        pencilLineWidthLabel.frame = NSRect(x: 390, y: 405, width: 40, height: 20)
+        pencilLineWidthLabel.alignment = .left
+        contentView.addSubview(pencilLineWidthLabel)
+        
+        // Заголовок прозрачности карандаша
+        let pencilOpacityTitleLabel = NSTextField(labelWithString: "Прозрачность карандаша:")
+        pencilOpacityTitleLabel.frame = NSRect(x: 20, y: 370, width: 150, height: 20)
+        contentView.addSubview(pencilOpacityTitleLabel)
+        
+        // Слайдер прозрачности карандаша
+        pencilOpacitySlider = NSSlider(frame: NSRect(x: 180, y: 365, width: 200, height: 20))
+        pencilOpacitySlider.minValue = 0.1
+        pencilOpacitySlider.maxValue = 1.0
+        pencilOpacitySlider.doubleValue = Double(CursorSettings.shared.pencilOpacity)
+        pencilOpacitySlider.target = self
+        pencilOpacitySlider.action = #selector(pencilOpacityChanged)
+        contentView.addSubview(pencilOpacitySlider)
+        
+        // Метка значения прозрачности карандаша
+        pencilOpacityLabel = NSTextField(labelWithString: "\(Int(CursorSettings.shared.pencilOpacity * 100))%")
+        pencilOpacityLabel.frame = NSRect(x: 390, y: 365, width: 40, height: 20)
+        pencilOpacityLabel.alignment = .left
+        contentView.addSubview(pencilOpacityLabel)
+        
         // Кнопка "Применить"
-        let applyButton = NSButton(frame: NSRect(x: 320, y: 20, width: 110, height: 32))
+        let applyButton = NSButton(frame: NSRect(x: 320, y: 320, width: 110, height: 32))
         applyButton.title = "Применить"
         applyButton.bezelStyle = .rounded
         applyButton.target = self
@@ -123,6 +191,9 @@ class SettingsWindow: NSWindowController {
         
         let currentClickColor = CursorSettings.shared.clickColor
         clickColorPopUp.selectItem(withTitle: currentClickColor.displayName)
+        
+        let currentPencilColor = CursorSettings.shared.pencilColor
+        pencilColorPopUp.selectItem(withTitle: currentPencilColor.displayName)
         
         let currentSizeSetting = CursorSettings.shared.size
         sizePopUp.selectItem(withTitle: currentSizeSetting.displayName)
@@ -257,6 +328,42 @@ class SettingsWindow: NSWindowController {
             CursorSettings.shared.clickColor = color
             updatePreview()
         }
+    }
+    
+    private func setupPencilColorMenu() {
+        pencilColorPopUp.removeAllItems()
+        for color in CursorColor.allCases {
+            // Создаём изображение-индикатор цвета
+            let colorImage = NSImage(size: NSSize(width: 16, height: 16))
+            colorImage.lockFocus()
+            color.color.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 2, y: 2, width: 12, height: 12)).fill()
+            colorImage.unlockFocus()
+            
+            let menuItem = NSMenuItem(title: color.displayName, action: nil, keyEquivalent: "")
+            menuItem.representedObject = color
+            menuItem.image = colorImage
+            pencilColorPopUp.menu?.addItem(menuItem)
+        }
+    }
+    
+    @objc private func pencilColorChanged() {
+        if let selectedItem = pencilColorPopUp.selectedItem,
+           let color = selectedItem.representedObject as? CursorColor {
+            CursorSettings.shared.pencilColor = color
+        }
+    }
+    
+    @objc private func pencilLineWidthChanged() {
+        let newWidth = CGFloat(pencilLineWidthSlider.doubleValue)
+        CursorSettings.shared.pencilLineWidth = newWidth
+        pencilLineWidthLabel.stringValue = String(format: "%.1f", newWidth)
+    }
+    
+    @objc private func pencilOpacityChanged() {
+        let newOpacity = CGFloat(pencilOpacitySlider.doubleValue)
+        CursorSettings.shared.pencilOpacity = newOpacity
+        pencilOpacityLabel.stringValue = "\(Int(newOpacity * 100))%"
     }
     
     func showWindow() {

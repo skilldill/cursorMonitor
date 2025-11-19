@@ -8,6 +8,7 @@ final class CursorHighlighter {
     private var menuView: MenuView?
     private var noteInputWindow: NoteInputWindow?
     private var notesViewWindow: NotesViewWindow?
+    private var drawingWindow: DrawingWindow?
     private var mouseMoveMonitor: Any?
     private var clickDownMonitor: Any?
     private var clickUpMonitor: Any?
@@ -129,6 +130,7 @@ final class CursorHighlighter {
 
         window?.orderOut(nil)
         menuWindow?.orderOut(nil)
+        drawingWindow?.stopDrawing()
         
         // Сброс состояния
         isFrozen = false
@@ -216,14 +218,20 @@ final class CursorHighlighter {
             self?.highlightView?.endClick()
         }
         
-        // Колесико мыши (средняя кнопка): нажатие для открытия меню
+        // Колесико мыши (средняя кнопка): нажатие для открытия меню или отключения карандаша
         middleButtonMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.otherMouseDown]
         ) { [weak self] event in
             guard let self = self else { return }
             // Проверяем, что это именно колесико (buttonNumber == 2)
             if event.buttonNumber == 2 {
-                self.showMenu()
+                // Если карандаш включен, отключаем его
+                if self.drawingWindow?.isDrawing == true {
+                    self.stopPencil()
+                } else {
+                    // Иначе открываем меню
+                    self.showMenu()
+                }
             }
         }
         
@@ -348,7 +356,7 @@ final class CursorHighlighter {
     
     private func createMenuWindow() {
         let menuWidth: CGFloat = 200
-        let menuHeight: CGFloat = 200
+        let menuHeight: CGFloat = 240
         
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: menuWidth, height: menuHeight),
@@ -387,6 +395,9 @@ final class CursorHighlighter {
         }
         menuView.onCreateNote = { [weak self] in
             self?.showNoteInputWindow()
+        }
+        menuView.onPencilClick = { [weak self] in
+            self?.startPencil()
         }
         menuView.onClose = { [weak self] in
             self?.hideMenu()
@@ -470,6 +481,37 @@ final class CursorHighlighter {
         let note = Note(text: text)
         NotesStorage.shared.addNote(note)
         print("Заметка сохранена: \(text)")
+    }
+    
+    private func startPencil() {
+        // Если карандаш уже включен, ничего не делаем
+        if drawingWindow?.isDrawing == true {
+            hideMenu()
+            return
+        }
+        
+        // Включаем карандаш
+        if drawingWindow == nil {
+            drawingWindow = DrawingWindow()
+            drawingWindow?.onStopDrawing = { [weak self] in
+                self?.stopPencil()
+            }
+        }
+        // Скрываем курсор
+        window?.orderOut(nil)
+        // Запускаем рисование
+        drawingWindow?.startDrawing()
+        hideMenu()
+    }
+    
+    private func stopPencil() {
+        // Выключаем карандаш
+        drawingWindow?.stopDrawing()
+        // Показываем курсор снова
+        if isRunning {
+            window?.orderFrontRegardless()
+        }
+        hideMenu()
     }
 
     // Позиционирование окна по глобальным координатам мыши

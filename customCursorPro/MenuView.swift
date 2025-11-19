@@ -7,12 +7,14 @@ final class MenuView: NSView {
     var onViewNotesClick: (() -> Void)?
     var onCalculatorClick: (() -> Void)?
     var onCreateNote: (() -> Void)?
+    var onPencilClick: (() -> Void)?
     var onClose: (() -> Void)?
     
     private var safariButton: NSButton?
     private var viewNotesButton: NSButton?
     private var calculatorButton: NSButton?
     private var createNoteButton: NSButton?
+    private var pencilButton: NSButton?
     private var closeButton: NSButton?
     
     override init(frame frameRect: NSRect) {
@@ -81,6 +83,16 @@ final class MenuView: NSView {
         
         currentY -= buttonHeight + buttonSpacing
         
+        // Кнопка Карандаш
+        pencilButton = createButton(
+            title: "Карандаш",
+            frame: NSRect(x: padding, y: currentY, width: buttonWidth, height: buttonHeight),
+            action: #selector(pencilButtonClicked)
+        )
+        addSubview(pencilButton!)
+        
+        currentY -= buttonHeight + buttonSpacing
+        
         // Кнопка закрытия
         closeButton = createButton(
             title: "Закрыть",
@@ -130,6 +142,10 @@ final class MenuView: NSView {
     
     @objc private func createNoteButtonClicked() {
         onCreateNote?()
+    }
+    
+    @objc private func pencilButtonClicked() {
+        onPencilClick?()
     }
     
     @objc private func closeButtonClicked() {
