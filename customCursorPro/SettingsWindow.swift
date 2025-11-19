@@ -41,10 +41,9 @@ class SettingsWindow: NSWindowController {
         previewLabel.frame = NSRect(x: 20, y: 240, width: 100, height: 20)
         contentView.addSubview(previewLabel)
         
-        // Превью курсора
+        // Превью курсора - используем точный размер как у реального курсора
         let previewDiameter = CursorSettings.shared.size.diameter
-        let previewSize: CGFloat = max(previewDiameter + 30, 120) // Немного больше для видимости
-        let previewFrame = NSRect(x: 165, y: 180, width: previewSize, height: previewSize)
+        let previewFrame = NSRect(x: 165, y: 180, width: previewDiameter, height: previewDiameter)
         previewView = HighlightView(frame: previewFrame)
         previewView.wantsLayer = true
         previewView.baseColor = CursorSettings.shared.color.color
@@ -144,15 +143,15 @@ class SettingsWindow: NSWindowController {
     @objc private func updatePreview() {
         previewView.baseColor = CursorSettings.shared.color.color
         previewView.opacity = CursorSettings.shared.opacity
-        let newSize = CursorSettings.shared.size.diameter
-        let previewSize: CGFloat = max(newSize + 30, 120) // Немного больше для видимости
+        let newDiameter = CursorSettings.shared.size.diameter
+        // Используем точный размер как у реального курсора
         let centerX = previewView.frame.midX
         let centerY = previewView.frame.midY
         previewView.frame = NSRect(
-            x: centerX - previewSize / 2,
-            y: centerY - previewSize / 2,
-            width: previewSize,
-            height: previewSize
+            x: centerX - newDiameter / 2,
+            y: centerY - newDiameter / 2,
+            width: newDiameter,
+            height: newDiameter
         )
         previewView.needsDisplay = true
     }
