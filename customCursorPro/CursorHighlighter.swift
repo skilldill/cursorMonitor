@@ -53,6 +53,12 @@ final class CursorHighlighter {
             name: .cursorOpacityChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(clickColorChanged),
+            name: .cursorClickColorChanged,
+            object: nil
+        )
     }
     
     @objc private func sizeChanged() {
@@ -77,6 +83,10 @@ final class CursorHighlighter {
     @objc private func opacityChanged() {
         // Обновляем прозрачность курсора
         highlightView?.opacity = CursorSettings.shared.opacity
+    }
+    
+    @objc private func clickColorChanged() {
+        highlightView?.clickColor = CursorSettings.shared.clickColor.color
     }
     
     deinit {
@@ -172,6 +182,7 @@ final class CursorHighlighter {
         let view = HighlightView(frame: NSRect(x: 0, y: 0, width: diameter, height: diameter))
         view.wantsLayer = true
         view.baseColor = CursorSettings.shared.color.color
+        view.clickColor = CursorSettings.shared.clickColor.color
         view.opacity = CursorSettings.shared.opacity
 
         panel.contentView = view

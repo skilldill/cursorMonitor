@@ -68,6 +68,7 @@ class CursorSettings {
     private let colorKey = "cursorColor"
     private let sizeKey = "cursorSize"
     private let opacityKey = "cursorOpacity"
+    private let clickColorKey = "cursorClickColor"
     
     var color: CursorColor {
         get {
@@ -111,6 +112,20 @@ class CursorSettings {
         }
     }
     
+    var clickColor: CursorColor {
+        get {
+            if let rawValue = UserDefaults.standard.string(forKey: clickColorKey),
+               let color = CursorColor(rawValue: rawValue) {
+                return color
+            }
+            return .green // По умолчанию зелёный
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: clickColorKey)
+            NotificationCenter.default.post(name: .cursorClickColorChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -118,5 +133,6 @@ extension Notification.Name {
     static let cursorColorChanged = Notification.Name("cursorColorChanged")
     static let cursorSizeChanged = Notification.Name("cursorSizeChanged")
     static let cursorOpacityChanged = Notification.Name("cursorOpacityChanged")
+    static let cursorClickColorChanged = Notification.Name("cursorClickColorChanged")
 }
 

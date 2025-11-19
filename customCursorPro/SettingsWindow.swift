@@ -6,6 +6,7 @@ class SettingsWindow: NSWindowController {
     private var sizePopUp: NSPopUpButton!
     private var opacitySlider: NSSlider!
     private var opacityLabel: NSTextField!
+    private var clickColorPopUp: NSPopUpButton!
     private var previewView: HighlightView!
     private var highlighter: CursorHighlighter?
     
@@ -25,7 +26,7 @@ class SettingsWindow: NSWindowController {
     
     private func createWindow() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 450, height: 360),
+            contentRect: NSRect(x: 0, y: 0, width: 450, height: 400),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -38,29 +39,42 @@ class SettingsWindow: NSWindowController {
         
         // Заголовок превью
         let previewLabel = NSTextField(labelWithString: "Превью:")
-        previewLabel.frame = NSRect(x: 20, y: 240, width: 100, height: 20)
+        previewLabel.frame = NSRect(x: 20, y: 280, width: 100, height: 20)
         contentView.addSubview(previewLabel)
         
         // Превью курсора - используем точный размер как у реального курсора
         let previewDiameter = CursorSettings.shared.size.diameter
-        let previewFrame = NSRect(x: 165, y: 180, width: previewDiameter, height: previewDiameter)
+        let previewFrame = NSRect(x: 165, y: 220, width: previewDiameter, height: previewDiameter)
         previewView = HighlightView(frame: previewFrame)
         previewView.wantsLayer = true
         previewView.baseColor = CursorSettings.shared.color.color
+        previewView.clickColor = CursorSettings.shared.clickColor.color
         previewView.opacity = CursorSettings.shared.opacity
         contentView.addSubview(previewView)
         
         // Заголовок цвета
         let colorLabel = NSTextField(labelWithString: "Цвет курсора:")
-        colorLabel.frame = NSRect(x: 20, y: 150, width: 150, height: 20)
+        colorLabel.frame = NSRect(x: 20, y: 190, width: 150, height: 20)
         contentView.addSubview(colorLabel)
         
         // Выпадающий список цветов
-        colorPopUp = NSPopUpButton(frame: NSRect(x: 180, y: 145, width: 250, height: 26))
+        colorPopUp = NSPopUpButton(frame: NSRect(x: 180, y: 185, width: 250, height: 26))
         setupColorMenu()
         colorPopUp.target = self
         colorPopUp.action = #selector(colorChanged)
         contentView.addSubview(colorPopUp)
+        
+        // Заголовок цвета клика
+        let clickColorLabel = NSTextField(labelWithString: "Цвет при клике:")
+        clickColorLabel.frame = NSRect(x: 20, y: 150, width: 150, height: 20)
+        contentView.addSubview(clickColorLabel)
+        
+        // Выпадающий список цветов клика
+        clickColorPopUp = NSPopUpButton(frame: NSRect(x: 180, y: 145, width: 250, height: 26))
+        setupClickColorMenu()
+        clickColorPopUp.target = self
+        clickColorPopUp.action = #selector(clickColorChanged)
+        contentView.addSubview(clickColorPopUp)
         
         // Заголовок размера
         let sizeLabel = NSTextField(labelWithString: "Размер курсора:")
@@ -107,6 +121,9 @@ class SettingsWindow: NSWindowController {
         let currentColor = CursorSettings.shared.color
         colorPopUp.selectItem(withTitle: currentColor.displayName)
         
+        let currentClickColor = CursorSettings.shared.clickColor
+        clickColorPopUp.selectItem(withTitle: currentClickColor.displayName)
+        
         let currentSizeSetting = CursorSettings.shared.size
         sizePopUp.selectItem(withTitle: currentSizeSetting.displayName)
         
@@ -132,6 +149,12 @@ class SettingsWindow: NSWindowController {
             name: .cursorOpacityChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updatePreview),
+            name: .cursorClickColorChanged,
+            object: nil
+        )
         
         self.window = window
     }
@@ -142,6 +165,7 @@ class SettingsWindow: NSWindowController {
     
     @objc private func updatePreview() {
         previewView.baseColor = CursorSettings.shared.color.color
+        previewView.clickColor = CursorSettings.shared.clickColor.color
         previewView.opacity = CursorSettings.shared.opacity
         let newDiameter = CursorSettings.shared.size.diameter
         // Используем точный размер как у реального курсора
@@ -194,6 +218,23 @@ class SettingsWindow: NSWindowController {
         }
     }
     
+    private func setupClickColorMenu() {
+        clickColorPopUp.removeAllItems()
+        for color in CursorColor.allCases {
+            // Создаём изображение-индикатор цвета
+            let colorImage = NSImage(size: NSSize(width: 16, height: 16))
+            colorImage.lockFocus()
+            color.color.setFill()
+            NSBezierPath(ovalIn: NSRect(x: 2, y: 2, width: 12, height: 12)).fill()
+            colorImage.unlockFocus()
+            
+            let menuItem = NSMenuItem(title: color.displayName, action: nil, keyEquivalent: "")
+            menuItem.representedObject = color
+            menuItem.image = colorImage
+            clickColorPopUp.menu?.addItem(menuItem)
+        }
+    }
+    
     @objc private func colorChanged() {
         if let selectedItem = colorPopUp.selectedItem,
            let color = selectedItem.representedObject as? CursorColor {
@@ -206,6 +247,14 @@ class SettingsWindow: NSWindowController {
         if let selectedItem = sizePopUp.selectedItem,
            let size = selectedItem.representedObject as? CursorSize {
             CursorSettings.shared.size = size
+            updatePreview()
+        }
+    }
+    
+    @objc private func clickColorChanged() {
+        if let selectedItem = clickColorPopUp.selectedItem,
+           let color = selectedItem.representedObject as? CursorColor {
+            CursorSettings.shared.clickColor = color
             updatePreview()
         }
     }

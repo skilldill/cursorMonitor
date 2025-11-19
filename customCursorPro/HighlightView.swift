@@ -9,7 +9,11 @@ final class HighlightView: NSView {
         }
     }
     // Цвет при клике
-    private let clickColor = NSColor.systemGreen
+    var clickColor: NSColor = CursorSettings.shared.clickColor.color {
+        didSet {
+            needsDisplay = true
+        }
+    }
     
     // Прозрачность курсора
     var opacity: CGFloat = CursorSettings.shared.opacity {
@@ -56,6 +60,12 @@ final class HighlightView: NSView {
             name: .cursorOpacityChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(clickColorChanged),
+            name: .cursorClickColorChanged,
+            object: nil
+        )
     }
     
     @objc private func colorChanged() {
@@ -64,6 +74,10 @@ final class HighlightView: NSView {
     
     @objc private func opacityChanged() {
         opacity = CursorSettings.shared.opacity
+    }
+    
+    @objc private func clickColorChanged() {
+        clickColor = CursorSettings.shared.clickColor.color
     }
     
     deinit {
