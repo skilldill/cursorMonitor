@@ -2,10 +2,21 @@ import Cocoa
 
 final class HighlightView: NSView {
 
-    // Базовый цвет подсветки
-    private let baseColor = NSColor.systemIndigo
+    // Базовый цвет подсветки (можно менять)
+    var baseColor: NSColor = CursorSettings.shared.color.color {
+        didSet {
+            needsDisplay = true
+        }
+    }
     // Цвет при клике
     private let clickColor = NSColor.systemGreen
+    
+    // Прозрачность курсора
+    var opacity: CGFloat = CursorSettings.shared.opacity {
+        didSet {
+            needsDisplay = true
+        }
+    }
 
     // Текущее состояние
     private var isPulsing = false
@@ -16,16 +27,49 @@ final class HighlightView: NSView {
             needsDisplay = true
         }
     }
-
+    
+    // Обработчик клика для разморозки курсора
+    var onClick: (() -> Void)?
+    
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         commonInit()
+        setupNotifications()
     }
-
+    
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         commonInit()
+        setupNotifications()
     }
+    
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(colorChanged),
+            name: .cursorColorChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(opacityChanged),
+            name: .cursorOpacityChanged,
+            object: nil
+        )
+    }
+    
+    @objc private func colorChanged() {
+        baseColor = CursorSettings.shared.color.color
+    }
+    
+    @objc private func opacityChanged() {
+        opacity = CursorSettings.shared.opacity
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
 
     private func commonInit() {
         wantsLayer = true
@@ -39,7 +83,7 @@ final class HighlightView: NSView {
 
         ctx.clear(bounds)
 
-        let base = (isPulsing ? clickColor : baseColor).withAlphaComponent(0.7)
+        let base = (isPulsing ? clickColor : baseColor).withAlphaComponent(opacity)
 
         // Параметры линий
         let outerLineWidth: CGFloat = 10
@@ -129,5 +173,12 @@ final class HighlightView: NSView {
             self?.isPulsing = false
             self?.currentScale = 1.0
         }
+    }
+    
+    // MARK: - Обработка кликов
+    
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
+        onClick?()
     }
 }
