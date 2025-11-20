@@ -74,6 +74,24 @@ enum MenuTheme: String, CaseIterable {
     }
 }
 
+enum CursorShape: String, CaseIterable {
+    case squircle = "squircle"
+    case circle = "circle"
+    case hexagon = "hexagon"
+    case triangle = "triangle"
+    case rhombus = "rhombus"
+    
+    var displayName: String {
+        switch self {
+        case .squircle: return "Скругленный квадрат"
+        case .circle: return "Круг"
+        case .hexagon: return "Шестиугольник"
+        case .triangle: return "Треугольник"
+        case .rhombus: return "Ромб"
+        }
+    }
+}
+
 class CursorSettings {
     static let shared = CursorSettings()
     
@@ -85,6 +103,7 @@ class CursorSettings {
     private let pencilLineWidthKey = "pencilLineWidth"
     private let pencilOpacityKey = "pencilOpacity"
     private let menuThemeKey = "menuTheme"
+    private let cursorShapeKey = "cursorShape"
     
     var menuTheme: MenuTheme {
         get {
@@ -204,6 +223,20 @@ class CursorSettings {
         }
     }
     
+    var shape: CursorShape {
+        get {
+            if let rawValue = UserDefaults.standard.string(forKey: cursorShapeKey),
+               let shape = CursorShape(rawValue: rawValue) {
+                return shape
+            }
+            return .rhombus // По умолчанию ромб (текущая форма)
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: cursorShapeKey)
+            NotificationCenter.default.post(name: .cursorShapeChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -212,6 +245,7 @@ extension Notification.Name {
     static let cursorSizeChanged = Notification.Name("cursorSizeChanged")
     static let cursorOpacityChanged = Notification.Name("cursorOpacityChanged")
     static let cursorClickColorChanged = Notification.Name("cursorClickColorChanged")
+    static let cursorShapeChanged = Notification.Name("cursorShapeChanged")
     static let pencilColorChanged = Notification.Name("pencilColorChanged")
     static let pencilLineWidthChanged = Notification.Name("pencilLineWidthChanged")
     static let pencilOpacityChanged = Notification.Name("pencilOpacityChanged")

@@ -4,6 +4,7 @@ class SettingsWindow: NSWindowController {
     
     private var colorPopUp: NSPopUpButton!
     private var sizePopUp: NSPopUpButton!
+    private var shapePopUp: NSPopUpButton!
     private var opacitySlider: NSSlider!
     private var opacityLabel: NSTextField!
     private var clickColorPopUp: NSPopUpButton!
@@ -14,6 +15,7 @@ class SettingsWindow: NSWindowController {
     private var pencilOpacityLabel: NSTextField!
     private var previewView: HighlightView!
     private var highlighter: CursorHighlighter?
+    private var previewTimer: Timer?
     
     // Контейнеры
     private var appearanceContainer: NSView!
@@ -37,7 +39,7 @@ class SettingsWindow: NSWindowController {
     
     private func createWindow() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 750),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -99,6 +101,12 @@ class SettingsWindow: NSWindowController {
             self,
             selector: #selector(updatePreview),
             name: .cursorSizeChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updatePreview),
+            name: .cursorShapeChanged,
             object: nil
         )
         NotificationCenter.default.addObserver(
@@ -173,7 +181,7 @@ class SettingsWindow: NSWindowController {
     }
     
     private func setupPreview() {
-        let windowHeight: CGFloat = 700
+        let windowHeight: CGFloat = 750
         let windowWidth: CGFloat = 600
         let previewContainer = NSView(frame: NSRect(x: 20, y: windowHeight - 240, width: windowWidth - 40, height: 200))
         previewContainer.wantsLayer = true
@@ -251,6 +259,17 @@ class SettingsWindow: NSWindowController {
         sizePopUp.target = self
         sizePopUp.action = #selector(sizeChanged)
         contentContainer.addSubview(sizePopUp)
+        currentY -= rowHeight
+        
+        // Форма курсора
+        let shapeLabel = createLabel("Cursor Shape:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(shapeLabel)
+        
+        shapePopUp = createPopUpButton(frame: NSRect(x: controlX, y: currentY - 3, width: controlWidth, height: 26))
+        setupShapeMenu()
+        shapePopUp.target = self
+        shapePopUp.action = #selector(shapeChanged)
+        contentContainer.addSubview(shapePopUp)
         currentY -= rowHeight
         
         // Прозрачность
@@ -341,8 +360,10 @@ class SettingsWindow: NSWindowController {
         currentY -= rowHeight + 20
         
         // Кнопка "Apply" внизу под всеми элементами
+        // Добавляем отступ от нижнего края окна (20px)
+        let bottomPadding: CGFloat = 20
         let windowWidth: CGFloat = 600
-        let applyButton = NSButton(frame: NSRect(x: windowWidth - 140, y: currentY, width: 120, height: 32))
+        let applyButton = NSButton(frame: NSRect(x: windowWidth - 140, y: bottomPadding, width: 120, height: 32))
         applyButton.title = "Apply"
         applyButton.bezelStyle = .rounded
         applyButton.target = self
@@ -350,7 +371,7 @@ class SettingsWindow: NSWindowController {
         applyButton.keyEquivalent = "\r"
         applyButton.wantsLayer = true
         applyButton.layer?.cornerRadius = 8
-        applyButton.layer?.backgroundColor = NSColor.systemGreen.withAlphaComponent(0.2).cgColor
+        applyButton.layer?.backgroundColor = NSColor.clear.cgColor
         applyButton.autoresizingMask = [.minXMargin, .minYMargin]
         contentContainer.addSubview(applyButton)
         
@@ -366,6 +387,9 @@ class SettingsWindow: NSWindowController {
         
         let currentSizeSetting = CursorSettings.shared.size
         sizePopUp.selectItem(withTitle: currentSizeSetting.displayName)
+        
+        let currentShape = CursorSettings.shared.shape
+        shapePopUp.selectItem(withTitle: currentShape.displayName)
     }
     
     private func createLabel(_ text: String, frame: NSRect) -> NSTextField {
@@ -461,6 +485,15 @@ class SettingsWindow: NSWindowController {
         }
     }
     
+    private func setupShapeMenu() {
+        shapePopUp.removeAllItems()
+        for shape in CursorShape.allCases {
+            let menuItem = NSMenuItem(title: shape.displayName, action: nil, keyEquivalent: "")
+            menuItem.representedObject = shape
+            shapePopUp.menu?.addItem(menuItem)
+        }
+    }
+    
     private func setupClickColorMenu() {
         clickColorPopUp.removeAllItems()
         for color in CursorColor.allCases {
@@ -490,6 +523,14 @@ class SettingsWindow: NSWindowController {
         if let selectedItem = sizePopUp.selectedItem,
            let size = selectedItem.representedObject as? CursorSize {
             CursorSettings.shared.size = size
+            updatePreview()
+        }
+    }
+    
+    @objc private func shapeChanged() {
+        if let selectedItem = shapePopUp.selectedItem,
+           let shape = selectedItem.representedObject as? CursorShape {
+            CursorSettings.shared.shape = shape
             updatePreview()
         }
     }
@@ -562,13 +603,55 @@ class SettingsWindow: NSWindowController {
         // Обновляем превью при открытии только если оно уже создано
         if previewView != nil {
             updatePreview()
+            startPreviewAnimation()
         }
+    }
+    
+    private func startPreviewAnimation() {
+        // Останавливаем предыдущий таймер, если он есть
+        previewTimer?.invalidate()
+        
+        // Начинаем с обычного состояния
+        previewView?.endClick()
+        
+        // Создаем таймер для автоматического переключения состояния
+        // Интервал = 3 секунды (обычное) + 1.5 секунды (нажатие) = 4.5 секунды
+        previewTimer = Timer.scheduledTimer(withTimeInterval: 4.5, repeats: true) { [weak self] _ in
+            guard let self = self, let previewView = self.previewView else { return }
+            
+            // Переключаем на состояние нажатия
+            previewView.beginClick()
+            
+            // Через 1.5 секунды возвращаем в обычное состояние
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                previewView.endClick()
+            }
+        }
+        
+        // Запускаем первый цикл сразу (обычное состояние 3 секунды, затем нажатие)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            guard let self = self, let previewView = self.previewView else { return }
+            previewView.beginClick()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                previewView.endClick()
+            }
+        }
+    }
+    
+    private func stopPreviewAnimation() {
+        previewTimer?.invalidate()
+        previewTimer = nil
+        previewView?.endClick()
     }
     
 }
 
 extension SettingsWindow: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
+        // Останавливаем анимацию превью
+        stopPreviewAnimation()
+        
         // Возобновляем основной курсор при закрытии настроек
         NotificationCenter.default.post(name: .settingsWindowWillClose, object: nil)
     }

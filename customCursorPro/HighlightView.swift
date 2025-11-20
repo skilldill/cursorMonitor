@@ -94,6 +94,12 @@ final class HighlightView: NSView {
             name: .pencilLineWidthChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(shapeChanged),
+            name: .cursorShapeChanged,
+            object: nil
+        )
     }
     
     @objc private func colorChanged() {
@@ -116,6 +122,10 @@ final class HighlightView: NSView {
         if isPencilMode {
             needsDisplay = true
         }
+    }
+    
+    @objc private func shapeChanged() {
+        needsDisplay = true
     }
     
     deinit {
@@ -166,48 +176,27 @@ final class HighlightView: NSView {
 
         // Прямоугольник, в который впишем фигуру
         let rect = bounds.insetBy(dx: inset, dy: inset)
-        // МАСШТАБИРУЕМ сам квадрат, а не слой
+        // МАСШТАБИРУЕМ сам размер, а не слой
         let size = min(rect.width, rect.height) * currentScale
 
-        // Включаем свечение
-//        ctx.setShadow(offset: .zero,
-//                      blur: 12,
-//                      color: base.withAlphaComponent(0.7).cgColor)
-
-        // Координатная система: центр в середине view + поворот на 45°
         ctx.saveGState()
         ctx.translateBy(x: bounds.midX, y: bounds.midY)
-        ctx.rotate(by: .pi / 4)
-
-        // Квадрат с центром в (0,0)
-        let squareRect = CGRect(x: -size / 2, y: -size / 2,
-                                width: size, height: size)
-        let cornerRadius = size / 2.7   // можно поиграть этим значением
-
-        // ==== ВНЕШНЕЕ КОЛЬЦО ====
-        let outerPath = CGPath(roundedRect: squareRect,
-                               cornerWidth: cornerRadius,
-                               cornerHeight: cornerRadius,
-                               transform: nil)
-
-        ctx.addPath(outerPath)
-        ctx.setStrokeColor(base.cgColor)
-        ctx.setLineWidth(outerLineWidth)
-        ctx.strokePath()
-
-        // ==== ВНУТРЕННЕЕ КОЛЬЦО ====
-        let innerInset: CGFloat = 8   // расстояние между кольцами
-        let innerRect = squareRect.insetBy(dx: innerInset, dy: innerInset)
-
-        let innerPath = CGPath(roundedRect: innerRect,
-                               cornerWidth: max(cornerRadius - innerInset / 2, 0),
-                               cornerHeight: max(cornerRadius - innerInset / 2, 0),
-                               transform: nil)
-
-        ctx.addPath(innerPath)
-        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
-        ctx.setLineWidth(innerLineWidth)
-        ctx.strokePath()
+        
+        let shape = CursorSettings.shared.shape
+        
+        // Рисуем форму в зависимости от выбранной
+        switch shape {
+        case .squircle:
+            drawSquircle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+        case .circle:
+            drawCircle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+        case .hexagon:
+            drawHexagon(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+        case .triangle:
+            drawTriangle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+        case .rhombus:
+            drawRhombus(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+        }
 
         ctx.restoreGState()
     }
@@ -245,6 +234,208 @@ final class HighlightView: NSView {
             self?.isPulsing = false
             self?.currentScale = 1.0
         }
+    }
+    
+    // MARK: - Отрисовка форм
+    
+    private func drawSquircle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+        let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
+        let cornerRadius = size / 3.5 // Сильно скругленные углы
+        
+        // Внешнее кольцо
+        let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        ctx.addPath(outerPath)
+        ctx.setStrokeColor(base.cgColor)
+        ctx.setLineWidth(outerLineWidth)
+        ctx.strokePath()
+        
+        // Внутреннее кольцо
+        let innerInset: CGFloat = 8
+        let innerRect = rect.insetBy(dx: innerInset, dy: innerInset)
+        let innerPath = CGPath(roundedRect: innerRect, cornerWidth: max(cornerRadius - innerInset / 2, 0), cornerHeight: max(cornerRadius - innerInset / 2, 0), transform: nil)
+        ctx.addPath(innerPath)
+        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
+        ctx.setLineWidth(innerLineWidth)
+        ctx.strokePath()
+    }
+    
+    private func drawCircle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+        // Используем rounded rect с большим cornerRadius для более мягкого вида
+        let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
+        let cornerRadius = size / 2 // Максимальное скругление для круга
+        
+        // Внешнее кольцо
+        let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        ctx.addPath(outerPath)
+        ctx.setStrokeColor(base.cgColor)
+        ctx.setLineWidth(outerLineWidth)
+        ctx.strokePath()
+        
+        // Внутреннее кольцо
+        let innerInset: CGFloat = 8
+        let innerRect = rect.insetBy(dx: innerInset, dy: innerInset)
+        let innerPath = CGPath(roundedRect: innerRect, cornerWidth: max(cornerRadius - innerInset / 2, 0), cornerHeight: max(cornerRadius - innerInset / 2, 0), transform: nil)
+        ctx.addPath(innerPath)
+        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
+        ctx.setLineWidth(innerLineWidth)
+        ctx.strokePath()
+    }
+    
+    private func drawHexagon(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+        // Увеличиваем радиус для более длинных граней (примерно на 20%)
+        let radius = size / 2 * 1.2
+        let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
+        
+        // Внешний шестиугольник
+        let outerPath = createRoundedHexagonPath(radius: radius, cornerRadius: cornerRadius)
+        ctx.addPath(outerPath)
+        ctx.setStrokeColor(base.cgColor)
+        ctx.setLineWidth(outerLineWidth)
+        ctx.strokePath()
+        
+        // Внутренний шестиугольник
+        let innerInset: CGFloat = 8
+        let innerRadius = radius - innerInset
+        let innerPath = createRoundedHexagonPath(radius: innerRadius, cornerRadius: max(cornerRadius - innerInset / 2, 0))
+        ctx.addPath(innerPath)
+        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
+        ctx.setLineWidth(innerLineWidth)
+        ctx.strokePath()
+    }
+    
+    private func createRoundedHexagonPath(radius: CGFloat, cornerRadius: CGFloat) -> CGMutablePath {
+        let path = CGMutablePath()
+        let sides = 6
+        let angle = .pi * 2 / CGFloat(sides)
+        
+        // Вычисляем точки для скругленных углов
+        var points: [CGPoint] = []
+        for i in 0..<sides {
+            let currentAngle = angle * CGFloat(i) - .pi / 2
+            let x = cos(currentAngle) * radius
+            let y = sin(currentAngle) * radius
+            points.append(CGPoint(x: x, y: y))
+        }
+        
+        // Создаем путь со скругленными углами
+        for i in 0..<sides {
+            let currentPoint = points[i]
+            let nextPoint = points[(i + 1) % sides]
+            let prevPoint = points[(i - 1 + sides) % sides]
+            
+            // Вычисляем точки начала и конца скругления
+            let toCurrent = CGPoint(x: currentPoint.x - prevPoint.x, y: currentPoint.y - prevPoint.y)
+            let toNext = CGPoint(x: nextPoint.x - currentPoint.x, y: nextPoint.y - currentPoint.y)
+            let dist1 = sqrt(toCurrent.x * toCurrent.x + toCurrent.y * toCurrent.y)
+            let dist2 = sqrt(toNext.x * toNext.x + toNext.y * toNext.y)
+            
+            let startX = currentPoint.x - toCurrent.x / dist1 * cornerRadius
+            let startY = currentPoint.y - toCurrent.y / dist1 * cornerRadius
+            let endX = currentPoint.x + toNext.x / dist2 * cornerRadius
+            let endY = currentPoint.y + toNext.y / dist2 * cornerRadius
+            
+            if i == 0 {
+                path.move(to: CGPoint(x: startX, y: startY))
+            } else {
+                path.addLine(to: CGPoint(x: startX, y: startY))
+            }
+            
+            // Добавляем дугу для скругления угла
+            path.addQuadCurve(to: CGPoint(x: endX, y: endY), control: currentPoint)
+        }
+        path.closeSubpath()
+        return path
+    }
+    
+    private func drawTriangle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+        // Увеличиваем радиус для более длинных сторон (примерно на 20%)
+        let radius = size / 2 * 1.2
+        let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
+        
+        // Внешний треугольник
+        let outerPath = createRoundedTrianglePath(radius: radius, cornerRadius: cornerRadius)
+        ctx.addPath(outerPath)
+        ctx.setStrokeColor(base.cgColor)
+        ctx.setLineWidth(outerLineWidth)
+        ctx.strokePath()
+        
+        // Внутренний треугольник
+        let innerInset: CGFloat = 8
+        let innerRadius = radius - innerInset
+        let innerPath = createRoundedTrianglePath(radius: innerRadius, cornerRadius: max(cornerRadius - innerInset / 2, 0))
+        ctx.addPath(innerPath)
+        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
+        ctx.setLineWidth(innerLineWidth)
+        ctx.strokePath()
+    }
+    
+    private func createRoundedTrianglePath(radius: CGFloat, cornerRadius: CGFloat) -> CGMutablePath {
+        let path = CGMutablePath()
+        let sides = 3
+        let angle = .pi * 2 / CGFloat(sides)
+        
+        // Вычисляем точки для скругленных углов
+        // Переворачиваем треугольник: добавляем pi для поворота на 180 градусов
+        var points: [CGPoint] = []
+        for i in 0..<sides {
+            let currentAngle = angle * CGFloat(i) - .pi / 2 + .pi
+            let x = cos(currentAngle) * radius
+            let y = sin(currentAngle) * radius
+            points.append(CGPoint(x: x, y: y))
+        }
+        
+        // Создаем путь со скругленными углами
+        for i in 0..<sides {
+            let currentPoint = points[i]
+            let nextPoint = points[(i + 1) % sides]
+            let prevPoint = points[(i - 1 + sides) % sides]
+            
+            // Вычисляем точки начала и конца скругления
+            let toCurrent = CGPoint(x: currentPoint.x - prevPoint.x, y: currentPoint.y - prevPoint.y)
+            let toNext = CGPoint(x: nextPoint.x - currentPoint.x, y: nextPoint.y - currentPoint.y)
+            let dist1 = sqrt(toCurrent.x * toCurrent.x + toCurrent.y * toCurrent.y)
+            let dist2 = sqrt(toNext.x * toNext.x + toNext.y * toNext.y)
+            
+            let startX = currentPoint.x - toCurrent.x / dist1 * cornerRadius
+            let startY = currentPoint.y - toCurrent.y / dist1 * cornerRadius
+            let endX = currentPoint.x + toNext.x / dist2 * cornerRadius
+            let endY = currentPoint.y + toNext.y / dist2 * cornerRadius
+            
+            if i == 0 {
+                path.move(to: CGPoint(x: startX, y: startY))
+            } else {
+                path.addLine(to: CGPoint(x: startX, y: startY))
+            }
+            
+            // Добавляем дугу для скругления угла
+            path.addQuadCurve(to: CGPoint(x: endX, y: endY), control: currentPoint)
+        }
+        path.closeSubpath()
+        return path
+    }
+    
+    private func drawRhombus(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+        // Поворачиваем на 45° для ромба
+        ctx.rotate(by: .pi / 4)
+        
+        let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
+        let cornerRadius = size / 2.7
+        
+        // Внешнее кольцо
+        let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        ctx.addPath(outerPath)
+        ctx.setStrokeColor(base.cgColor)
+        ctx.setLineWidth(outerLineWidth)
+        ctx.strokePath()
+        
+        // Внутреннее кольцо
+        let innerInset: CGFloat = 8
+        let innerRect = rect.insetBy(dx: innerInset, dy: innerInset)
+        let innerPath = CGPath(roundedRect: innerRect, cornerWidth: max(cornerRadius - innerInset / 2, 0), cornerHeight: max(cornerRadius - innerInset / 2, 0), transform: nil)
+        ctx.addPath(innerPath)
+        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
+        ctx.setLineWidth(innerLineWidth)
+        ctx.strokePath()
     }
     
     // MARK: - Обработка кликов

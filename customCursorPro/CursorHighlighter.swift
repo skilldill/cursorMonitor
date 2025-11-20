@@ -76,6 +76,12 @@ final class CursorHighlighter {
             name: .pencilLineWidthChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(shapeChanged),
+            name: .cursorShapeChanged,
+            object: nil
+        )
     }
     
     @objc private func sizeChanged() {
@@ -117,6 +123,11 @@ final class CursorHighlighter {
     
     @objc private func clickColorChanged() {
         highlightView?.clickColor = CursorSettings.shared.clickColor.color
+    }
+    
+    @objc private func shapeChanged() {
+        // Просто перерисовываем курсор с новой формой
+        highlightView?.needsDisplay = true
     }
     
     @objc private func pencilLineWidthChanged() {
