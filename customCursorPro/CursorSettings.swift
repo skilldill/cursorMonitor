@@ -62,6 +62,18 @@ enum CursorSize: String, CaseIterable {
     }
 }
 
+enum MenuTheme: String, CaseIterable {
+    case dark = "dark"
+    case light = "light"
+    
+    var displayName: String {
+        switch self {
+        case .dark: return "Тёмная"
+        case .light: return "Светлая"
+        }
+    }
+}
+
 class CursorSettings {
     static let shared = CursorSettings()
     
@@ -72,6 +84,27 @@ class CursorSettings {
     private let pencilColorKey = "pencilColor"
     private let pencilLineWidthKey = "pencilLineWidth"
     private let pencilOpacityKey = "pencilOpacity"
+    private let menuThemeKey = "menuTheme"
+    
+    var menuTheme: MenuTheme {
+        get {
+            if let rawValue = UserDefaults.standard.string(forKey: menuThemeKey),
+               let theme = MenuTheme(rawValue: rawValue) {
+                return theme
+            }
+            return .dark // По умолчанию тёмная тема
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: menuThemeKey)
+            NotificationCenter.default.post(name: .menuThemeChanged, object: nil)
+            NotificationCenter.default.post(name: .appThemeChanged, object: nil)
+        }
+    }
+    
+    // Общее переключение темы для всего приложения
+    func toggleTheme() {
+        menuTheme = menuTheme == .dark ? .light : .dark
+    }
     
     var color: CursorColor {
         get {
@@ -182,5 +215,7 @@ extension Notification.Name {
     static let pencilColorChanged = Notification.Name("pencilColorChanged")
     static let pencilLineWidthChanged = Notification.Name("pencilLineWidthChanged")
     static let pencilOpacityChanged = Notification.Name("pencilOpacityChanged")
+    static let menuThemeChanged = Notification.Name("menuThemeChanged")
+    static let appThemeChanged = Notification.Name("appThemeChanged")
 }
 

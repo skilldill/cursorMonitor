@@ -15,6 +15,12 @@ class SettingsWindow: NSWindowController {
     private var previewView: HighlightView!
     private var highlighter: CursorHighlighter?
     
+    // Контейнеры
+    private var appearanceContainer: NSView!
+    private var contentContainer: NSView!
+    private var visualEffectView: NSVisualEffectView!
+    private var themeSwitch: NSSwitch!
+    
     override init(window: NSWindow?) {
         super.init(window: window)
         createWindow()
@@ -31,172 +37,53 @@ class SettingsWindow: NSWindowController {
     
     private func createWindow() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 450, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 700),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Настройки курсора"
+        window.title = "Cursor Pro Settings"
         window.center()
         window.isReleasedWhenClosed = false
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         
+        // Создаем основной контейнер с блюром
         let contentView = window.contentView!
+        contentView.wantsLayer = true
         
-        // Заголовок превью
-        let previewLabel = NSTextField(labelWithString: "Превью:")
-        previewLabel.frame = NSRect(x: 20, y: 280, width: 100, height: 20)
-        contentView.addSubview(previewLabel)
+        // NSVisualEffectView для стеклянного блюра
+        visualEffectView = NSVisualEffectView(frame: contentView.bounds)
+        visualEffectView.material = .hudWindow
+        visualEffectView.blendingMode = .behindWindow
+        visualEffectView.state = .active
+        visualEffectView.wantsLayer = true
+        visualEffectView.autoresizingMask = [.width, .height]
+        contentView.addSubview(visualEffectView)
         
-        // Превью курсора - используем точный размер как у реального курсора
-        let previewDiameter = CursorSettings.shared.size.diameter
-        let previewFrame = NSRect(x: 165, y: 220, width: previewDiameter, height: previewDiameter)
-        previewView = HighlightView(frame: previewFrame)
-        previewView.wantsLayer = true
-        previewView.baseColor = CursorSettings.shared.color.color
-        previewView.clickColor = CursorSettings.shared.clickColor.color
-        previewView.opacity = CursorSettings.shared.opacity
-        contentView.addSubview(previewView)
+        // Контейнер для контента
+        contentContainer = NSView(frame: contentView.bounds)
+        contentContainer.wantsLayer = true
+        contentContainer.autoresizingMask = [.width, .height]
+        contentView.addSubview(contentContainer)
         
-        // Заголовок цвета
-        let colorLabel = NSTextField(labelWithString: "Цвет курсора:")
-        colorLabel.frame = NSRect(x: 20, y: 190, width: 150, height: 20)
-        contentView.addSubview(colorLabel)
+        // Подписываемся на изменения темы
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(themeChanged),
+            name: .appThemeChanged,
+            object: nil
+        )
         
-        // Выпадающий список цветов
-        colorPopUp = NSPopUpButton(frame: NSRect(x: 180, y: 185, width: 250, height: 26))
-        setupColorMenu()
-        colorPopUp.target = self
-        colorPopUp.action = #selector(colorChanged)
-        contentView.addSubview(colorPopUp)
+        // Область превью
+        setupPreview()
         
-        // Заголовок цвета клика
-        let clickColorLabel = NSTextField(labelWithString: "Цвет при клике:")
-        clickColorLabel.frame = NSRect(x: 20, y: 150, width: 150, height: 20)
-        contentView.addSubview(clickColorLabel)
+        // Контейнер для настроек Appearance
+        appearanceContainer = NSView()
+        setupAppearanceSettings()
         
-        // Выпадающий список цветов клика
-        clickColorPopUp = NSPopUpButton(frame: NSRect(x: 180, y: 145, width: 250, height: 26))
-        setupClickColorMenu()
-        clickColorPopUp.target = self
-        clickColorPopUp.action = #selector(clickColorChanged)
-        contentView.addSubview(clickColorPopUp)
-        
-        // Заголовок размера
-        let sizeLabel = NSTextField(labelWithString: "Размер курсора:")
-        sizeLabel.frame = NSRect(x: 20, y: 110, width: 150, height: 20)
-        contentView.addSubview(sizeLabel)
-        
-        // Выпадающий список размеров
-        sizePopUp = NSPopUpButton(frame: NSRect(x: 180, y: 105, width: 250, height: 26))
-        setupSizeMenu()
-        sizePopUp.target = self
-        sizePopUp.action = #selector(sizeChanged)
-        contentView.addSubview(sizePopUp)
-        
-        // Заголовок прозрачности
-        let opacityTitleLabel = NSTextField(labelWithString: "Прозрачность:")
-        opacityTitleLabel.frame = NSRect(x: 20, y: 70, width: 150, height: 20)
-        contentView.addSubview(opacityTitleLabel)
-        
-        // Слайдер прозрачности
-        opacitySlider = NSSlider(frame: NSRect(x: 180, y: 65, width: 200, height: 20))
-        opacitySlider.minValue = 0.1
-        opacitySlider.maxValue = 1.0
-        opacitySlider.doubleValue = Double(CursorSettings.shared.opacity)
-        opacitySlider.target = self
-        opacitySlider.action = #selector(opacityChanged)
-        contentView.addSubview(opacitySlider)
-        
-        // Метка значения прозрачности
-        opacityLabel = NSTextField(labelWithString: "\(Int(CursorSettings.shared.opacity * 100))%")
-        opacityLabel.frame = NSRect(x: 390, y: 65, width: 40, height: 20)
-        opacityLabel.alignment = .left
-        contentView.addSubview(opacityLabel)
-        
-        // Разделитель для настроек карандаша
-        let separator = NSBox(frame: NSRect(x: 20, y: 30, width: 410, height: 1))
-        separator.boxType = .separator
-        contentView.addSubview(separator)
-        
-        // Заголовок настроек карандаша
-        let pencilTitleLabel = NSTextField(labelWithString: "Настройки карандаша:")
-        pencilTitleLabel.frame = NSRect(x: 20, y: 10, width: 200, height: 20)
-        pencilTitleLabel.font = NSFont.boldSystemFont(ofSize: 13)
-        contentView.addSubview(pencilTitleLabel)
-        
-        // Заголовок цвета карандаша
-        let pencilColorLabel = NSTextField(labelWithString: "Цвет карандаша:")
-        pencilColorLabel.frame = NSRect(x: 20, y: 450, width: 150, height: 20)
-        contentView.addSubview(pencilColorLabel)
-        
-        // Выпадающий список цветов карандаша
-        pencilColorPopUp = NSPopUpButton(frame: NSRect(x: 180, y: 445, width: 250, height: 26))
-        setupPencilColorMenu()
-        pencilColorPopUp.target = self
-        pencilColorPopUp.action = #selector(pencilColorChanged)
-        contentView.addSubview(pencilColorPopUp)
-        
-        // Заголовок толщины линии карандаша
-        let pencilLineWidthTitleLabel = NSTextField(labelWithString: "Толщина линии:")
-        pencilLineWidthTitleLabel.frame = NSRect(x: 20, y: 410, width: 150, height: 20)
-        contentView.addSubview(pencilLineWidthTitleLabel)
-        
-        // Слайдер толщины линии карандаша
-        pencilLineWidthSlider = NSSlider(frame: NSRect(x: 180, y: 405, width: 200, height: 20))
-        pencilLineWidthSlider.minValue = 1.0
-        pencilLineWidthSlider.maxValue = 20.0
-        pencilLineWidthSlider.doubleValue = Double(CursorSettings.shared.pencilLineWidth)
-        pencilLineWidthSlider.target = self
-        pencilLineWidthSlider.action = #selector(pencilLineWidthChanged)
-        contentView.addSubview(pencilLineWidthSlider)
-        
-        // Метка значения толщины линии
-        pencilLineWidthLabel = NSTextField(labelWithString: String(format: "%.1f", CursorSettings.shared.pencilLineWidth))
-        pencilLineWidthLabel.frame = NSRect(x: 390, y: 405, width: 40, height: 20)
-        pencilLineWidthLabel.alignment = .left
-        contentView.addSubview(pencilLineWidthLabel)
-        
-        // Заголовок прозрачности карандаша
-        let pencilOpacityTitleLabel = NSTextField(labelWithString: "Прозрачность карандаша:")
-        pencilOpacityTitleLabel.frame = NSRect(x: 20, y: 370, width: 150, height: 20)
-        contentView.addSubview(pencilOpacityTitleLabel)
-        
-        // Слайдер прозрачности карандаша
-        pencilOpacitySlider = NSSlider(frame: NSRect(x: 180, y: 365, width: 200, height: 20))
-        pencilOpacitySlider.minValue = 0.1
-        pencilOpacitySlider.maxValue = 1.0
-        pencilOpacitySlider.doubleValue = Double(CursorSettings.shared.pencilOpacity)
-        pencilOpacitySlider.target = self
-        pencilOpacitySlider.action = #selector(pencilOpacityChanged)
-        contentView.addSubview(pencilOpacitySlider)
-        
-        // Метка значения прозрачности карандаша
-        pencilOpacityLabel = NSTextField(labelWithString: "\(Int(CursorSettings.shared.pencilOpacity * 100))%")
-        pencilOpacityLabel.frame = NSRect(x: 390, y: 365, width: 40, height: 20)
-        pencilOpacityLabel.alignment = .left
-        contentView.addSubview(pencilOpacityLabel)
-        
-        // Кнопка "Применить"
-        let applyButton = NSButton(frame: NSRect(x: 320, y: 320, width: 110, height: 32))
-        applyButton.title = "Применить"
-        applyButton.bezelStyle = .rounded
-        applyButton.target = self
-        applyButton.action = #selector(applyButtonClicked)
-        applyButton.keyEquivalent = "\r" // Enter для применения
-        contentView.addSubview(applyButton)
-        
-        // Устанавливаем текущие значения
-        let currentColor = CursorSettings.shared.color
-        colorPopUp.selectItem(withTitle: currentColor.displayName)
-        
-        let currentClickColor = CursorSettings.shared.clickColor
-        clickColorPopUp.selectItem(withTitle: currentClickColor.displayName)
-        
-        let currentPencilColor = CursorSettings.shared.pencilColor
-        pencilColorPopUp.selectItem(withTitle: currentPencilColor.displayName)
-        
-        let currentSizeSetting = CursorSettings.shared.size
-        sizePopUp.selectItem(withTitle: currentSizeSetting.displayName)
+        // Применяем тему после создания всех элементов
+        applyTheme()
         
         // Устанавливаем делегат для обработки закрытия окна
         window.delegate = self
@@ -230,11 +117,296 @@ class SettingsWindow: NSWindowController {
         self.window = window
     }
     
+    @objc private func themeChanged() {
+        applyTheme()
+    }
+    
+    private func applyTheme() {
+        guard let visualEffectView = visualEffectView else { return }
+        let theme = CursorSettings.shared.menuTheme
+        
+        switch theme {
+        case .dark:
+            visualEffectView.material = .hudWindow
+        case .light:
+            visualEffectView.material = .light
+        }
+        
+        // Обновляем цвета текста и элементов
+        updateControlsTheme()
+    }
+    
+    private func updateControlsTheme() {
+        let isDark = CursorSettings.shared.menuTheme == .dark
+        
+        // Цвет текста: для светлой темы используем темный контрастный цвет
+        let textColor = isDark ? NSColor.labelColor : NSColor(white: 0.1, alpha: 1.0)
+        
+        // Обновляем цвета всех текстовых меток в contentContainer
+        for subview in contentContainer.subviews {
+            if let label = subview as? NSTextField, label.isEditable == false {
+                label.textColor = textColor
+            }
+            // Также обновляем метки внутри вложенных контейнеров (например, previewContainer)
+            if let container = subview as? NSView {
+                for nestedSubview in container.subviews {
+                    if let label = nestedSubview as? NSTextField, label.isEditable == false {
+                        label.textColor = textColor
+                    }
+                }
+            }
+        }
+        
+        // Обновляем switch темы
+        if let themeSwitch = themeSwitch {
+            themeSwitch.state = isDark ? .off : .on
+        }
+        
+        // Обновляем метку рядом со switch
+        for subview in contentContainer.subviews {
+            if let label = subview as? NSTextField, label.tag == 999 {
+                label.stringValue = isDark ? "Dark" : "Light"
+                label.textColor = textColor
+                break
+            }
+        }
+    }
+    
+    private func setupPreview() {
+        let windowHeight: CGFloat = 700
+        let windowWidth: CGFloat = 600
+        let previewContainer = NSView(frame: NSRect(x: 20, y: windowHeight - 240, width: windowWidth - 40, height: 200))
+        previewContainer.wantsLayer = true
+        previewContainer.layer?.cornerRadius = 12
+        previewContainer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
+        previewContainer.autoresizingMask = [.width, .minYMargin]
+        contentContainer.addSubview(previewContainer)
+        
+        // Заголовок превью
+        let previewLabel = NSTextField(labelWithString: "Preview")
+        previewLabel.frame = NSRect(x: 20, y: previewContainer.bounds.height - 30, width: 100, height: 20)
+        previewLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        // Устанавливаем цвет в зависимости от темы
+        let isDark = CursorSettings.shared.menuTheme == .dark
+        previewLabel.textColor = isDark ? .labelColor : NSColor(white: 0.1, alpha: 1.0)
+        previewContainer.addSubview(previewLabel)
+        
+        // Превью курсора - используем точный размер как у реального курсора
+        let previewDiameter = CursorSettings.shared.size.diameter
+        let previewFrame = NSRect(
+            x: previewContainer.bounds.midX - previewDiameter / 2,
+            y: previewContainer.bounds.midY - previewDiameter / 2 - 10,
+            width: previewDiameter,
+            height: previewDiameter
+        )
+        previewView = HighlightView(frame: previewFrame)
+        previewView.wantsLayer = true
+        previewView.baseColor = CursorSettings.shared.color.color
+        previewView.clickColor = CursorSettings.shared.clickColor.color
+        previewView.opacity = CursorSettings.shared.opacity
+        previewContainer.addSubview(previewView)
+    }
+    
+    private func setupAppearanceSettings() {
+        let settingsY: CGFloat = 440
+        let labelWidth: CGFloat = 180
+        let controlX: CGFloat = 220
+        let controlWidth: CGFloat = 320
+        let rowHeight: CGFloat = 35
+        var currentY = settingsY
+        
+        // Cursor Settings Section
+        let cursorSectionLabel = createSectionLabel("Cursor Settings", y: currentY)
+        contentContainer.addSubview(cursorSectionLabel)
+        currentY -= 30
+        
+        // Цвет курсора
+        let colorLabel = createLabel("Cursor Color:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(colorLabel)
+        
+        colorPopUp = createPopUpButton(frame: NSRect(x: controlX, y: currentY - 3, width: controlWidth, height: 26))
+        setupColorMenu()
+        colorPopUp.target = self
+        colorPopUp.action = #selector(colorChanged)
+        contentContainer.addSubview(colorPopUp)
+        currentY -= rowHeight
+        
+        // Цвет при клике
+        let clickColorLabel = createLabel("Click Color:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(clickColorLabel)
+        
+        clickColorPopUp = createPopUpButton(frame: NSRect(x: controlX, y: currentY - 3, width: controlWidth, height: 26))
+        setupClickColorMenu()
+        clickColorPopUp.target = self
+        clickColorPopUp.action = #selector(clickColorChanged)
+        contentContainer.addSubview(clickColorPopUp)
+        currentY -= rowHeight
+        
+        // Размер курсора
+        let sizeLabel = createLabel("Cursor Size:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(sizeLabel)
+        
+        sizePopUp = createPopUpButton(frame: NSRect(x: controlX, y: currentY - 3, width: controlWidth, height: 26))
+        setupSizeMenu()
+        sizePopUp.target = self
+        sizePopUp.action = #selector(sizeChanged)
+        contentContainer.addSubview(sizePopUp)
+        currentY -= rowHeight
+        
+        // Прозрачность
+        let opacityTitleLabel = createLabel("Transparency:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(opacityTitleLabel)
+        
+        opacitySlider = createSlider(frame: NSRect(x: controlX, y: currentY, width: 250, height: 20))
+        opacitySlider.minValue = 0.1
+        opacitySlider.maxValue = 1.0
+        opacitySlider.doubleValue = Double(CursorSettings.shared.opacity)
+        opacitySlider.target = self
+        opacitySlider.action = #selector(opacityChanged)
+        contentContainer.addSubview(opacitySlider)
+        
+        opacityLabel = createLabel("\(Int(CursorSettings.shared.opacity * 100))%", frame: NSRect(x: controlX + 260, y: currentY, width: 60, height: 20))
+        contentContainer.addSubview(opacityLabel)
+        currentY -= rowHeight + 10
+        
+        // Pencil Settings Section
+        let pencilSectionLabel = createSectionLabel("Pencil Settings", y: currentY)
+        contentContainer.addSubview(pencilSectionLabel)
+        currentY -= 30
+        
+        // Цвет карандаша
+        let pencilColorLabel = createLabel("Pencil Color:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(pencilColorLabel)
+        
+        pencilColorPopUp = createPopUpButton(frame: NSRect(x: controlX, y: currentY - 3, width: controlWidth, height: 26))
+        setupPencilColorMenu()
+        pencilColorPopUp.target = self
+        pencilColorPopUp.action = #selector(pencilColorChanged)
+        contentContainer.addSubview(pencilColorPopUp)
+        currentY -= rowHeight
+        
+        // Толщина линии карандаша
+        let pencilLineWidthTitleLabel = createLabel("Line Thickness:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(pencilLineWidthTitleLabel)
+        
+        pencilLineWidthSlider = createSlider(frame: NSRect(x: controlX, y: currentY, width: 250, height: 20))
+        pencilLineWidthSlider.minValue = 1.0
+        pencilLineWidthSlider.maxValue = 20.0
+        pencilLineWidthSlider.doubleValue = Double(CursorSettings.shared.pencilLineWidth)
+        pencilLineWidthSlider.target = self
+        pencilLineWidthSlider.action = #selector(pencilLineWidthChanged)
+        contentContainer.addSubview(pencilLineWidthSlider)
+        
+        pencilLineWidthLabel = createLabel(String(format: "%.1f", CursorSettings.shared.pencilLineWidth), frame: NSRect(x: controlX + 260, y: currentY, width: 60, height: 20))
+        contentContainer.addSubview(pencilLineWidthLabel)
+        currentY -= rowHeight
+        
+        // Прозрачность карандаша
+        let pencilOpacityTitleLabel = createLabel("Pencil Transparency:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(pencilOpacityTitleLabel)
+        
+        pencilOpacitySlider = createSlider(frame: NSRect(x: controlX, y: currentY, width: 250, height: 20))
+        pencilOpacitySlider.minValue = 0.1
+        pencilOpacitySlider.maxValue = 1.0
+        pencilOpacitySlider.doubleValue = Double(CursorSettings.shared.pencilOpacity)
+        pencilOpacitySlider.target = self
+        pencilOpacitySlider.action = #selector(pencilOpacityChanged)
+        contentContainer.addSubview(pencilOpacitySlider)
+        
+        pencilOpacityLabel = createLabel("\(Int(CursorSettings.shared.pencilOpacity * 100))%", frame: NSRect(x: controlX + 260, y: currentY, width: 60, height: 20))
+        contentContainer.addSubview(pencilOpacityLabel)
+        currentY -= rowHeight + 10
+        
+        // Menu Settings Section
+        let menuSectionLabel = createSectionLabel("Menu Settings", y: currentY)
+        contentContainer.addSubview(menuSectionLabel)
+        currentY -= 30
+        
+        // Тема меню - Switch
+        let menuThemeLabel = createLabel("Menu Theme:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(menuThemeLabel)
+        
+        // Switch для переключения темы (Dark/Light)
+        let isDark = CursorSettings.shared.menuTheme == .dark
+        themeSwitch = NSSwitch(frame: NSRect(x: controlX, y: currentY - 2, width: 51, height: 31))
+        themeSwitch.state = isDark ? .off : .on
+        themeSwitch.target = self
+        themeSwitch.action = #selector(themeSwitchChanged)
+        contentContainer.addSubview(themeSwitch)
+        
+        // Метка для switch (Dark/Light)
+        let themeLabel = createLabel(isDark ? "Dark" : "Light", frame: NSRect(x: controlX + 60, y: currentY, width: 100, height: 20))
+        themeLabel.tag = 999 // Используем tag для обновления
+        contentContainer.addSubview(themeLabel)
+        currentY -= rowHeight + 20
+        
+        // Кнопка "Apply" внизу под всеми элементами
+        let windowWidth: CGFloat = 600
+        let applyButton = NSButton(frame: NSRect(x: windowWidth - 140, y: currentY, width: 120, height: 32))
+        applyButton.title = "Apply"
+        applyButton.bezelStyle = .rounded
+        applyButton.target = self
+        applyButton.action = #selector(applyButtonClicked)
+        applyButton.keyEquivalent = "\r"
+        applyButton.wantsLayer = true
+        applyButton.layer?.cornerRadius = 8
+        applyButton.layer?.backgroundColor = NSColor.systemGreen.withAlphaComponent(0.2).cgColor
+        applyButton.autoresizingMask = [.minXMargin, .minYMargin]
+        contentContainer.addSubview(applyButton)
+        
+        // Устанавливаем текущие значения
+        let currentColor = CursorSettings.shared.color
+        colorPopUp.selectItem(withTitle: currentColor.displayName)
+        
+        let currentClickColor = CursorSettings.shared.clickColor
+        clickColorPopUp.selectItem(withTitle: currentClickColor.displayName)
+        
+        let currentPencilColor = CursorSettings.shared.pencilColor
+        pencilColorPopUp.selectItem(withTitle: currentPencilColor.displayName)
+        
+        let currentSizeSetting = CursorSettings.shared.size
+        sizePopUp.selectItem(withTitle: currentSizeSetting.displayName)
+    }
+    
+    private func createLabel(_ text: String, frame: NSRect) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.frame = frame
+        label.font = NSFont.systemFont(ofSize: 13)
+        // Устанавливаем цвет в зависимости от темы
+        let isDark = CursorSettings.shared.menuTheme == .dark
+        label.textColor = isDark ? .labelColor : NSColor(white: 0.1, alpha: 1.0)
+        return label
+    }
+    
+    private func createSectionLabel(_ text: String, y: CGFloat) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.frame = NSRect(x: 40, y: y, width: 500, height: 20)
+        label.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        // Устанавливаем цвет в зависимости от темы
+        let isDark = CursorSettings.shared.menuTheme == .dark
+        label.textColor = isDark ? .labelColor : NSColor(white: 0.1, alpha: 1.0)
+        return label
+    }
+    
+    private func createPopUpButton(frame: NSRect) -> NSPopUpButton {
+        let popUp = NSPopUpButton(frame: frame)
+        popUp.wantsLayer = true
+        popUp.layer?.cornerRadius = 6
+        popUp.bezelStyle = .rounded
+        return popUp
+    }
+    
+    private func createSlider(frame: NSRect) -> NSSlider {
+        let slider = NSSlider(frame: frame)
+        return slider
+    }
+    
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
     
     @objc private func updatePreview() {
+        guard let previewView = previewView else { return }
         previewView.baseColor = CursorSettings.shared.color.color
         previewView.clickColor = CursorSettings.shared.clickColor.color
         previewView.opacity = CursorSettings.shared.opacity
@@ -366,6 +538,20 @@ class SettingsWindow: NSWindowController {
         pencilOpacityLabel.stringValue = "\(Int(newOpacity * 100))%"
     }
     
+    
+    @objc private func themeSwitchChanged() {
+        let newTheme: MenuTheme = themeSwitch.state == .on ? .light : .dark
+        CursorSettings.shared.menuTheme = newTheme
+        
+        // Обновляем метку рядом со switch
+        for subview in contentContainer.subviews {
+            if let label = subview as? NSTextField, label.tag == 999 {
+                label.stringValue = newTheme == .dark ? "Dark" : "Light"
+                break
+            }
+        }
+    }
+    
     func showWindow() {
         // Останавливаем основной курсор при открытии настроек
         NotificationCenter.default.post(name: .settingsWindowWillOpen, object: nil)
@@ -373,8 +559,10 @@ class SettingsWindow: NSWindowController {
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         
-        // Обновляем превью при открытии
-        updatePreview()
+        // Обновляем превью при открытии только если оно уже создано
+        if previewView != nil {
+            updatePreview()
+        }
     }
     
 }
@@ -390,4 +578,3 @@ extension Notification.Name {
     static let settingsWindowWillOpen = Notification.Name("settingsWindowWillOpen")
     static let settingsWindowWillClose = Notification.Name("settingsWindowWillClose")
 }
-

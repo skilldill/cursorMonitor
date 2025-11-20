@@ -363,9 +363,9 @@ final class CursorHighlighter {
         
         guard let menuWindow = menuWindow else { return }
         
-        // Позиционируем меню справа от курсора
-        let menuWidth: CGFloat = 200
-        let menuHeight: CGFloat = 200
+        // Позиционируем меню справа от курсора (горизонтальная раскладка)
+        let menuWidth: CGFloat = 320
+        let menuHeight: CGFloat = 80
         
         // NSEvent.mouseLocation и setFrameOrigin используют одну систему координат:
         // (0,0) находится в левом нижнем углу основного экрана
@@ -422,8 +422,8 @@ final class CursorHighlighter {
     }
     
     private func createMenuWindow() {
-        let menuWidth: CGFloat = 200
-        let menuHeight: CGFloat = 240
+        let menuWidth: CGFloat = 320
+        let menuHeight: CGFloat = 80
         
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: menuWidth, height: menuHeight),
@@ -451,9 +451,6 @@ final class CursorHighlighter {
         menuView.wantsLayer = true
         
         // Устанавливаем обработчики для кнопок меню
-        menuView.onSafariClick = { [weak self] in
-            self?.openSafari()
-        }
         menuView.onViewNotesClick = { [weak self] in
             self?.showNotesViewWindow()
         }
