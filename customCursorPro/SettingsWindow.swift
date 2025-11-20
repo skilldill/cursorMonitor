@@ -359,6 +359,17 @@ class SettingsWindow: NSWindowController {
         contentContainer.addSubview(themeLabel)
         currentY -= rowHeight + 20
         
+        // Подсказка о горячих клавишах
+        let hintLabel = NSTextField(labelWithString: "💡 Tip: ⌘ + Click opens menu and closes pencil mode")
+        hintLabel.frame = NSRect(x: 40, y: currentY, width: 520, height: 20)
+        hintLabel.font = NSFont.systemFont(ofSize: 11)
+        hintLabel.tag = 1000 // Используем tag для обновления цвета
+        let isDarkForHint = CursorSettings.shared.menuTheme == .dark
+        hintLabel.textColor = isDarkForHint ? NSColor.labelColor : NSColor(white: 0.1, alpha: 1.0)
+        hintLabel.alignment = .left
+        contentContainer.addSubview(hintLabel)
+        currentY -= 25
+        
         // Кнопка "Apply" внизу под всеми элементами
         // Добавляем отступ от нижнего края окна (20px)
         let bottomPadding: CGFloat = 20
