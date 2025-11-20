@@ -19,6 +19,13 @@ final class CursorHighlighter {
         return CursorSettings.shared.size.diameter
     }
     
+    // Размер окна для режима карандаша (радиус * 2 + небольшой отступ для обводки)
+    private var pencilWindowSize: CGFloat {
+        let lineWidth = CursorSettings.shared.pencilLineWidth
+        // Размер окна = диаметр окружности + небольшой отступ (4px для обводки)
+        return max(lineWidth + 4, 20) // Минимум 20px для видимости
+    }
+    
     // Заморозка курсора
     private var isFrozen = false
     private var frozenPosition: NSPoint?
@@ -28,6 +35,9 @@ final class CursorHighlighter {
     
     // Позиция для меню (справа от курсора)
     private let menuOffset: CGFloat = 20
+    
+    // Оригинальный размер окна для восстановления после режима карандаша
+    private var originalWindowSize: CGFloat = 0
 
     private(set) var isRunning: Bool = false
     
@@ -60,11 +70,20 @@ final class CursorHighlighter {
             name: .cursorClickColorChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(pencilLineWidthChanged),
+            name: .pencilLineWidthChanged,
+            object: nil
+        )
     }
     
     @objc private func sizeChanged() {
         // Пересоздаём окно с новым размером
         if isRunning {
+            // Сохраняем состояние режима карандаша
+            let wasPencilMode = highlightView?.isPencilMode ?? false
+            
             // Закрываем старое окно
             window?.orderOut(nil)
             window = nil
@@ -72,6 +91,16 @@ final class CursorHighlighter {
             
             // Пересоздаём окно с новым размером
             createWindowIfNeeded()
+            
+            // Восстанавливаем режим карандаша, если он был активен
+            if wasPencilMode {
+                highlightView?.isPencilMode = true
+                highlightView?.pencilModeColor = CursorSettings.shared.pencilColor.color
+            } else {
+                // Обновляем originalWindowSize, если режим карандаша не активен
+                originalWindowSize = diameter
+            }
+            
             updatePositionToMouse()
         }
     }
@@ -88,6 +117,21 @@ final class CursorHighlighter {
     
     @objc private func clickColorChanged() {
         highlightView?.clickColor = CursorSettings.shared.clickColor.color
+    }
+    
+    @objc private func pencilLineWidthChanged() {
+        // Если карандаш активен, обновляем размер окна и перерисовываем курсор
+        if drawingWindow?.isDrawing == true, let window = window, let highlightView = highlightView {
+            let pencilSize = pencilWindowSize
+            let currentPos = NSEvent.mouseLocation
+            let newOrigin = NSPoint(
+                x: currentPos.x - pencilSize / 2,
+                y: currentPos.y - pencilSize / 2
+            )
+            window.setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: pencilSize, height: pencilSize), display: true)
+            highlightView.frame = NSRect(x: 0, y: 0, width: pencilSize, height: pencilSize)
+            highlightView.needsDisplay = true
+        }
     }
     
     deinit {
@@ -171,8 +215,8 @@ final class CursorHighlighter {
         // Когда курсор заморожен, изменим это на false
         panel.ignoresMouseEvents = true
 
-        // Уровень поверх всего
-        panel.level = .screenSaver
+        // Уровень поверх всего (выше окна рисования)
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.screenSaverWindow)) + 1)
 
         // Поведение в Spaces / full screen
         panel.collectionBehavior = [
@@ -192,6 +236,8 @@ final class CursorHighlighter {
 
         self.window = panel
         self.highlightView = view
+        // Сохраняем оригинальный размер окна
+        self.originalWindowSize = diameter
     }
 
 
@@ -204,11 +250,29 @@ final class CursorHighlighter {
             self?.updatePositionToMouse()
         }
 
-        // Левая кнопка мыши: mouseDown (для визуального эффекта)
+        // Левая кнопка мыши: mouseDown (для визуального эффекта или открытия меню с Command)
         clickDownMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown]
-        ) { [weak self] _ in
-            self?.highlightView?.beginClick()
+        ) { [weak self] event in
+            guard let self = self else { return }
+            // Если нажата Command, открываем/закрываем меню или отключаем карандаш
+            if event.modifierFlags.contains(.command) {
+                // Если карандаш включен, отключаем его (приоритет над меню)
+                if self.drawingWindow?.isDrawing == true {
+                    self.stopPencil()
+                    return
+                }
+                // Если меню уже открыто, закрываем его
+                if self.menuWindow?.isVisible == true {
+                    self.hideMenu()
+                } else {
+                    // Иначе открываем меню
+                    self.showMenu()
+                }
+            } else {
+                // Обычный клик - показываем визуальный эффект
+                self.highlightView?.beginClick()
+            }
         }
 
         // Левая кнопка мыши: mouseUp (для визуального эффекта)
@@ -228,6 +292,9 @@ final class CursorHighlighter {
                 // Если карандаш включен, отключаем его
                 if self.drawingWindow?.isDrawing == true {
                     self.stopPencil()
+                } else if self.menuWindow?.isVisible == true {
+                    // Если меню уже открыто, закрываем его
+                    self.hideMenu()
                 } else {
                     // Иначе открываем меню
                     self.showMenu()
@@ -497,8 +564,32 @@ final class CursorHighlighter {
                 self?.stopPencil()
             }
         }
-        // Скрываем курсор
-        window?.orderOut(nil)
+        
+        // Переключаем курсор в режим карандаша
+        if let window = window, let highlightView = highlightView {
+            // Сохраняем оригинальный размер
+            originalWindowSize = window.frame.width
+            
+            // Устанавливаем режим карандаша
+            highlightView.isPencilMode = true
+            highlightView.pencilModeColor = CursorSettings.shared.pencilColor.color
+            
+            // Изменяем размер окна в зависимости от толщины карандаша
+            let pencilSize = pencilWindowSize
+            let currentPos = NSEvent.mouseLocation
+            let newOrigin = NSPoint(
+                x: currentPos.x - pencilSize / 2,
+                y: currentPos.y - pencilSize / 2
+            )
+            window.setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: pencilSize, height: pencilSize), display: true)
+            // Обновляем размер view, чтобы он соответствовал новому размеру окна
+            highlightView.frame = NSRect(x: 0, y: 0, width: pencilSize, height: pencilSize)
+            highlightView.needsDisplay = true
+            window.orderFrontRegardless()
+            // Обновляем позицию курсора
+            updatePositionToMouse()
+        }
+        
         // Запускаем рисование
         drawingWindow?.startDrawing()
         hideMenu()
@@ -507,9 +598,30 @@ final class CursorHighlighter {
     private func stopPencil() {
         // Выключаем карандаш
         drawingWindow?.stopDrawing()
+        
+        // Возвращаем курсор в обычный режим
+        if let window = window, let highlightView = highlightView {
+            // Выключаем режим карандаша
+            highlightView.isPencilMode = false
+            
+            // Восстанавливаем оригинальный размер окна
+            if originalWindowSize > 0 {
+                let currentPos = NSEvent.mouseLocation
+                let newOrigin = NSPoint(
+                    x: currentPos.x - originalWindowSize / 2,
+                    y: currentPos.y - originalWindowSize / 2
+                )
+                window.setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: originalWindowSize, height: originalWindowSize), display: true)
+                // Восстанавливаем размер view
+                highlightView.frame = NSRect(x: 0, y: 0, width: originalWindowSize, height: originalWindowSize)
+                highlightView.needsDisplay = true
+            }
+        }
+        
         // Показываем курсор снова
         if isRunning {
             window?.orderFrontRegardless()
+            updatePositionToMouse()
         }
         hideMenu()
     }
@@ -520,13 +632,36 @@ final class CursorHighlighter {
 
         // Глобальные координаты курсора (одна система для всех мониторов)
         let location = NSEvent.mouseLocation
+        
+        // Определяем размер окна в зависимости от режима карандаша
+        let windowSize: CGFloat
+        if highlightView?.isPencilMode == true {
+            windowSize = pencilWindowSize // Размер для режима карандаша (зависит от толщины)
+        } else {
+            windowSize = diameter // Обычный размер
+        }
+        
+        // Обновляем размер окна, если он изменился (например, при переключении режима)
+        if window.frame.width != windowSize {
+            let newOrigin = NSPoint(
+                x: location.x - windowSize / 2,
+                y: location.y - windowSize / 2
+            )
+            window.setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: windowSize, height: windowSize), display: true)
+            // Обновляем размер view
+            if let highlightView = highlightView {
+                highlightView.frame = NSRect(x: 0, y: 0, width: windowSize, height: windowSize)
+                highlightView.needsDisplay = true
+            }
+        } else {
+            // Просто обновляем позицию
+            let newOrigin = NSPoint(
+                x: location.x - windowSize / 2,
+                y: location.y - windowSize / 2
+            )
+            window.setFrameOrigin(newOrigin)
+        }
 
-        let newOrigin = NSPoint(
-            x: location.x - diameter / 2,
-            y: location.y - diameter / 2
-        )
-
-        window.setFrameOrigin(newOrigin)
         window.orderFrontRegardless()
     }
 }

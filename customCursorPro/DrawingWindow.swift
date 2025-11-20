@@ -143,6 +143,13 @@ class DrawingView: NSView {
     
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
+        
+        // Если нажата Command, отключаем карандаш
+        if event.modifierFlags.contains(.command) {
+            onStopDrawing?()
+            return
+        }
+        
         isDrawing = true
         
         // Используем координаты относительно окна

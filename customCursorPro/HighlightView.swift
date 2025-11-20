@@ -24,6 +24,22 @@ final class HighlightView: NSView {
 
     // Текущее состояние
     private var isPulsing = false
+    
+    // Режим карандаша
+    var isPencilMode: Bool = false {
+        didSet {
+            needsDisplay = true
+        }
+    }
+    
+    // Цвет карандаша для режима карандаша
+    var pencilModeColor: NSColor = CursorSettings.shared.pencilColor.color {
+        didSet {
+            if isPencilMode {
+                needsDisplay = true
+            }
+        }
+    }
 
     // Коэффициент масштаба фигуры (1.0 — полный размер)
     private var currentScale: CGFloat = 1.0 {
@@ -66,6 +82,18 @@ final class HighlightView: NSView {
             name: .cursorClickColorChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(pencilColorChanged),
+            name: .pencilColorChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(pencilLineWidthChanged),
+            name: .pencilLineWidthChanged,
+            object: nil
+        )
     }
     
     @objc private func colorChanged() {
@@ -78,6 +106,16 @@ final class HighlightView: NSView {
     
     @objc private func clickColorChanged() {
         clickColor = CursorSettings.shared.clickColor.color
+    }
+    
+    @objc private func pencilColorChanged() {
+        pencilModeColor = CursorSettings.shared.pencilColor.color
+    }
+    
+    @objc private func pencilLineWidthChanged() {
+        if isPencilMode {
+            needsDisplay = true
+        }
     }
     
     deinit {
@@ -96,6 +134,26 @@ final class HighlightView: NSView {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
 
         ctx.clear(bounds)
+
+        // Режим карандаша - маленькая окружность
+        if isPencilMode {
+            let center = CGPoint(x: bounds.midX, y: bounds.midY)
+            // Радиус равен половине толщины карандаша из настроек
+            let radius = CursorSettings.shared.pencilLineWidth / 2
+            let circlePath = CGMutablePath()
+            circlePath.addArc(center: center, radius: radius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
+            
+            ctx.addPath(circlePath)
+            ctx.setFillColor(pencilModeColor.withAlphaComponent(CursorSettings.shared.pencilOpacity).cgColor)
+            ctx.fillPath()
+            
+            // Обводка для лучшей видимости
+            ctx.addPath(circlePath)
+            ctx.setStrokeColor(pencilModeColor.withAlphaComponent(0.8).cgColor)
+            ctx.setLineWidth(1.5)
+            ctx.strokePath()
+            return
+        }
 
         let base = (isPulsing ? clickColor : baseColor).withAlphaComponent(opacity)
 
