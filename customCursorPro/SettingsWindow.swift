@@ -252,7 +252,7 @@ class SettingsWindow: NSWindowController {
     }
     
     private func setupAppearanceSettings() {
-        let settingsY: CGFloat = 500
+        let settingsY: CGFloat = 550
         let labelWidth: CGFloat = 180
         let controlX: CGFloat = 220
         let controlWidth: CGFloat = 320
