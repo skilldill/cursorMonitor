@@ -16,6 +16,8 @@ class SettingsWindow: NSWindowController {
     private var pencilLineWidthLabel: NSTextField!
     private var pencilOpacitySlider: NSSlider!
     private var pencilOpacityLabel: NSTextField!
+    private var shadowBrightnessSlider: NSSlider!
+    private var shadowBrightnessLabel: NSTextField!
     private var previewView: HighlightView!
     private var highlighter: CursorHighlighter?
     
@@ -133,6 +135,12 @@ class SettingsWindow: NSWindowController {
             self,
             selector: #selector(updatePreview),
             name: .cursorClickColorChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updatePreview),
+            name: .cursorShadowBrightnessChanged,
             object: nil
         )
         
@@ -341,6 +349,22 @@ class SettingsWindow: NSWindowController {
         
         opacityLabel = createLabel("\(Int(CursorSettings.shared.opacity * 100))%", frame: NSRect(x: controlX + 260, y: currentY, width: 60, height: 20))
         contentContainer.addSubview(opacityLabel)
+        currentY -= rowHeight
+        
+        // Яркость тени
+        let shadowBrightnessTitleLabel = createLabel("Shadow Brightness:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(shadowBrightnessTitleLabel)
+        
+        shadowBrightnessSlider = createSlider(frame: NSRect(x: controlX, y: currentY, width: 250, height: 20))
+        shadowBrightnessSlider.minValue = 0.0
+        shadowBrightnessSlider.maxValue = 1.0
+        shadowBrightnessSlider.doubleValue = Double(CursorSettings.shared.shadowBrightness)
+        shadowBrightnessSlider.target = self
+        shadowBrightnessSlider.action = #selector(shadowBrightnessChanged)
+        contentContainer.addSubview(shadowBrightnessSlider)
+        
+        shadowBrightnessLabel = createLabel("\(Int(CursorSettings.shared.shadowBrightness * 100))%", frame: NSRect(x: controlX + 260, y: currentY, width: 60, height: 20))
+        contentContainer.addSubview(shadowBrightnessLabel)
         currentY -= rowHeight + 5
         
         // Pencil Settings Section
@@ -670,6 +694,13 @@ class SettingsWindow: NSWindowController {
         let newOpacity = CGFloat(pencilOpacitySlider.doubleValue)
         CursorSettings.shared.pencilOpacity = newOpacity
         pencilOpacityLabel.stringValue = "\(Int(newOpacity * 100))%"
+    }
+    
+    @objc private func shadowBrightnessChanged() {
+        let newBrightness = CGFloat(shadowBrightnessSlider.doubleValue)
+        CursorSettings.shared.shadowBrightness = newBrightness
+        shadowBrightnessLabel.stringValue = "\(Int(newBrightness * 100))%"
+        updatePreview()
     }
     
     

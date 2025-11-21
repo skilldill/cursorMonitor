@@ -123,6 +123,7 @@ class CursorSettings {
     private let innerGlowStyleKey = "innerGlowStyle"
     private let outerLineWidthKey = "outerLineWidth"
     private let shadowColorKey = "cursorShadowColor"
+    private let shadowBrightnessKey = "cursorShadowBrightness"
     
     var menuTheme: MenuTheme {
         get {
@@ -308,6 +309,20 @@ class CursorSettings {
         return shadowColor ?? color
     }
     
+    var shadowBrightness: CGFloat {
+        get {
+            let value = UserDefaults.standard.double(forKey: shadowBrightnessKey)
+            if value > 0 {
+                return value
+            }
+            return 0.4 // По умолчанию 40% яркости тени
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: shadowBrightnessKey)
+            NotificationCenter.default.post(name: .cursorShadowBrightnessChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -325,5 +340,6 @@ extension Notification.Name {
     static let innerGlowStyleChanged = Notification.Name("innerGlowStyleChanged")
     static let outerLineWidthChanged = Notification.Name("outerLineWidthChanged")
     static let cursorShadowColorChanged = Notification.Name("cursorShadowColorChanged")
+    static let cursorShadowBrightnessChanged = Notification.Name("cursorShadowBrightnessChanged")
 }
 

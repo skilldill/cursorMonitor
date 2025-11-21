@@ -142,6 +142,12 @@ final class HighlightView: NSView {
             name: .cursorColorChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(shadowBrightnessChanged),
+            name: .cursorShadowBrightnessChanged,
+            object: nil
+        )
     }
     
     @objc private func colorChanged() {
@@ -179,6 +185,10 @@ final class HighlightView: NSView {
     }
     
     @objc private func shadowColorChanged() {
+        needsDisplay = true
+    }
+    
+    @objc private func shadowBrightnessChanged() {
         needsDisplay = true
     }
     
@@ -403,12 +413,15 @@ final class HighlightView: NSView {
         let cornerRadius = size / 3.5 // Сильно скругленные углы
         
         // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-        ctx.setShadow(
-            offset: CGSize(width: 0, height: 0),
-            blur: 15.0, // Радиус размытия для легкой подсветки
-            color: shadowColor.withAlphaComponent(0.4).cgColor // Легкая прозрачность
-        )
+        let shadowBrightness = CursorSettings.shared.shadowBrightness
+        if shadowBrightness > 0 {
+            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+            ctx.setShadow(
+                offset: CGSize(width: 0, height: 0),
+                blur: 15.0, // Радиус размытия для легкой подсветки
+                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+            )
+        }
         
         // Внешнее кольцо
         let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
@@ -433,12 +446,15 @@ final class HighlightView: NSView {
         let cornerRadius = size / 2 // Максимальное скругление для круга
         
         // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-        ctx.setShadow(
-            offset: CGSize(width: 0, height: 0),
-            blur: 15.0, // Радиус размытия для легкой подсветки
-            color: shadowColor.withAlphaComponent(0.4).cgColor // Легкая прозрачность
-        )
+        let shadowBrightness = CursorSettings.shared.shadowBrightness
+        if shadowBrightness > 0 {
+            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+            ctx.setShadow(
+                offset: CGSize(width: 0, height: 0),
+                blur: 15.0, // Радиус размытия для легкой подсветки
+                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+            )
+        }
         
         // Внешнее кольцо
         let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
@@ -463,12 +479,15 @@ final class HighlightView: NSView {
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
         
         // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-        ctx.setShadow(
-            offset: CGSize(width: 0, height: 0),
-            blur: 15.0, // Радиус размытия для легкой подсветки
-            color: shadowColor.withAlphaComponent(0.4).cgColor // Легкая прозрачность
-        )
+        let shadowBrightness = CursorSettings.shared.shadowBrightness
+        if shadowBrightness > 0 {
+            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+            ctx.setShadow(
+                offset: CGSize(width: 0, height: 0),
+                blur: 15.0, // Радиус размытия для легкой подсветки
+                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+            )
+        }
         
         // Внешний шестиугольник
         let outerPath = createRoundedHexagonPath(radius: radius, cornerRadius: cornerRadius)
@@ -537,12 +556,15 @@ final class HighlightView: NSView {
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
         
         // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-        ctx.setShadow(
-            offset: CGSize(width: 0, height: 0),
-            blur: 15.0, // Радиус размытия для легкой подсветки
-            color: shadowColor.withAlphaComponent(0.4).cgColor // Легкая прозрачность
-        )
+        let shadowBrightness = CursorSettings.shared.shadowBrightness
+        if shadowBrightness > 0 {
+            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+            ctx.setShadow(
+                offset: CGSize(width: 0, height: 0),
+                blur: 15.0, // Радиус размытия для легкой подсветки
+                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+            )
+        }
         
         // Внешний треугольник
         let outerPath = createRoundedTrianglePath(radius: radius, cornerRadius: cornerRadius)
@@ -612,12 +634,15 @@ final class HighlightView: NSView {
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
         
         // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-        ctx.setShadow(
-            offset: CGSize(width: 0, height: 0),
-            blur: 15.0, // Радиус размытия для легкой подсветки
-            color: shadowColor.withAlphaComponent(0.4).cgColor // Легкая прозрачность
-        )
+        let shadowBrightness = CursorSettings.shared.shadowBrightness
+        if shadowBrightness > 0 {
+            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+            ctx.setShadow(
+                offset: CGSize(width: 0, height: 0),
+                blur: 15.0, // Радиус размытия для легкой подсветки
+                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+            )
+        }
         
         // Внешний пятиугольник
         let outerPath = createRoundedPentagonPath(radius: radius, cornerRadius: cornerRadius)
@@ -688,12 +713,15 @@ final class HighlightView: NSView {
         let cornerRadius = size / 2.7
         
         // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-        ctx.setShadow(
-            offset: CGSize(width: 0, height: 0),
-            blur: 15.0, // Радиус размытия для легкой подсветки
-            color: shadowColor.withAlphaComponent(0.4).cgColor // Легкая прозрачность
-        )
+        let shadowBrightness = CursorSettings.shared.shadowBrightness
+        if shadowBrightness > 0 {
+            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+            ctx.setShadow(
+                offset: CGSize(width: 0, height: 0),
+                blur: 15.0, // Радиус размытия для легкой подсветки
+                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+            )
+        }
         
         // Внешнее кольцо
         let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
