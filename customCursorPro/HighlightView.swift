@@ -48,6 +48,22 @@ final class HighlightView: NSView {
         }
     }
     
+    // Анимируемые свойства для переходов
+    private var animatedScale: CGFloat = 1.0 {
+        didSet {
+            needsDisplay = true
+        }
+    }
+    
+    private var animatedColorProgress: CGFloat = 0.0 {
+        didSet {
+            needsDisplay = true
+        }
+    }
+    
+    // Таймер для анимации
+    private var animationTimer: Timer?
+    
     // Обработчик клика для разморозки курсора
     var onClick: (() -> Void)?
     
@@ -150,6 +166,7 @@ final class HighlightView: NSView {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        animationTimer?.invalidate()
     }
 
 
@@ -185,7 +202,32 @@ final class HighlightView: NSView {
             return
         }
 
-        let base = (isPulsing ? clickColor : baseColor).withAlphaComponent(opacity)
+        // Интерполируем цвет между baseColor и clickColor на основе animatedColorProgress
+        let interpolatedColor: NSColor
+        if animatedColorProgress <= 0 {
+            interpolatedColor = baseColor
+        } else if animatedColorProgress >= 1 {
+            interpolatedColor = clickColor
+        } else {
+            // Конвертируем цвета в RGB пространство для корректной интерполяции
+            let baseRGB = baseColor.usingColorSpace(.deviceRGB) ?? baseColor
+            let clickRGB = clickColor.usingColorSpace(.deviceRGB) ?? clickColor
+            
+            var baseR: CGFloat = 0, baseG: CGFloat = 0, baseB: CGFloat = 0, baseA: CGFloat = 0
+            var clickR: CGFloat = 0, clickG: CGFloat = 0, clickB: CGFloat = 0, clickA: CGFloat = 0
+            
+            baseRGB.getRed(&baseR, green: &baseG, blue: &baseB, alpha: &baseA)
+            clickRGB.getRed(&clickR, green: &clickG, blue: &clickB, alpha: &clickA)
+            
+            let r = baseR + (clickR - baseR) * animatedColorProgress
+            let g = baseG + (clickG - baseG) * animatedColorProgress
+            let b = baseB + (clickB - baseB) * animatedColorProgress
+            let a = baseA + (clickA - baseA) * animatedColorProgress
+            
+            interpolatedColor = NSColor(deviceRed: r, green: g, blue: b, alpha: a)
+        }
+        
+        let base = interpolatedColor.withAlphaComponent(opacity)
 
         // Параметры линий
         let outerLineWidth: CGFloat = CursorSettings.shared.outerLineWidth
@@ -196,8 +238,8 @@ final class HighlightView: NSView {
 
         // Прямоугольник, в который впишем фигуру
         let rect = bounds.insetBy(dx: inset, dy: inset)
-        // МАСШТАБИРУЕМ сам размер, а не слой
-        let size = min(rect.width, rect.height) * currentScale
+        // МАСШТАБИРУЕМ сам размер, а не слой (используем animatedScale для плавной анимации)
+        let size = min(rect.width, rect.height) * animatedScale
 
         ctx.saveGState()
         ctx.translateBy(x: bounds.midX, y: bounds.midY)
@@ -227,22 +269,72 @@ final class HighlightView: NSView {
     func beginClick() {
         isPulsing = true
         currentScale = 0.9   // чуть уменьшаем фигуру
+        
+        // Анимируем переход цвета и размера
+        animateToScale(0.9, colorProgress: 1.0)
     }
 
     /// Вызывается при mouseUp
     func endClick() {
         isPulsing = false
         currentScale = 1.0   // возвращаем нормальный размер
+        
+        // Анимируем возврат цвета и размера
+        animateToScale(1.0, colorProgress: 0.0)
+    }
+    
+    /// Анимирует переход к указанному масштабу и прогрессу цвета
+    private func animateToScale(_ targetScale: CGFloat, colorProgress: CGFloat) {
+        // Останавливаем предыдущую анимацию, если она есть
+        animationTimer?.invalidate()
+        
+        let startScale = animatedScale
+        let startColorProgress = animatedColorProgress
+        let duration: TimeInterval = 0.05
+        let startTime = Date()
+        
+        // Используем таймер для плавной анимации
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                return
+            }
+            
+            let elapsed = Date().timeIntervalSince(startTime)
+            let progress = min(elapsed / duration, 1.0)
+            
+            // Используем ease-in-out кривую
+            let easedProgress = progress < 0.5
+                ? 2 * progress * progress
+                : 1 - pow(-2 * progress + 2, 2) / 2
+            
+            // Интерполируем значения
+            self.animatedScale = startScale + (targetScale - startScale) * easedProgress
+            self.animatedColorProgress = startColorProgress + (colorProgress - startColorProgress) * easedProgress
+            
+            if progress >= 1.0 {
+                timer.invalidate()
+                self.animationTimer = nil
+                // Убеждаемся, что финальные значения установлены точно
+                self.animatedScale = targetScale
+                self.animatedColorProgress = colorProgress
+            }
+        }
+        
+        animationTimer = timer
+        RunLoop.current.add(timer, forMode: .common)
     }
 
     // Старый "пульс" можно оставить на случай использования где-то ещё
     func pulse() {
         isPulsing = true
         currentScale = 0.9
+        animateToScale(0.9, colorProgress: 1.0)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             self?.isPulsing = false
             self?.currentScale = 1.0
+            self?.animateToScale(1.0, colorProgress: 0.0)
         }
     }
 
@@ -250,9 +342,11 @@ final class HighlightView: NSView {
     private func simplePulseFallback() {
         isPulsing = true
         currentScale = 0.9
+        animateToScale(0.9, colorProgress: 1.0)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.isPulsing = false
             self?.currentScale = 1.0
+            self?.animateToScale(1.0, colorProgress: 0.0)
         }
     }
     
