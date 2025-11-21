@@ -122,6 +122,7 @@ class CursorSettings {
     private let cursorShapeKey = "cursorShape"
     private let innerGlowStyleKey = "innerGlowStyle"
     private let outerLineWidthKey = "outerLineWidth"
+    private let shadowColorKey = "cursorShadowColor"
     
     var menuTheme: MenuTheme {
         get {
@@ -283,6 +284,30 @@ class CursorSettings {
         }
     }
     
+    // Цвет тени (опционально, по умолчанию используется основной цвет)
+    var shadowColor: CursorColor? {
+        get {
+            if let rawValue = UserDefaults.standard.string(forKey: shadowColorKey),
+               let color = CursorColor(rawValue: rawValue) {
+                return color
+            }
+            return nil // По умолчанию nil - используется основной цвет
+        }
+        set {
+            if let newValue = newValue {
+                UserDefaults.standard.set(newValue.rawValue, forKey: shadowColorKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: shadowColorKey)
+            }
+            NotificationCenter.default.post(name: .cursorShadowColorChanged, object: nil)
+        }
+    }
+    
+    // Возвращает цвет тени (либо установленный отдельно, либо основной цвет)
+    var effectiveShadowColor: CursorColor {
+        return shadowColor ?? color
+    }
+    
     private init() {}
 }
 
@@ -299,5 +324,6 @@ extension Notification.Name {
     static let appThemeChanged = Notification.Name("appThemeChanged")
     static let innerGlowStyleChanged = Notification.Name("innerGlowStyleChanged")
     static let outerLineWidthChanged = Notification.Name("outerLineWidthChanged")
+    static let cursorShadowColorChanged = Notification.Name("cursorShadowColorChanged")
 }
 
