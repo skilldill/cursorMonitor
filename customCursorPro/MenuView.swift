@@ -7,13 +7,11 @@ final class MenuView: NSView {
     var onCalculatorClick: (() -> Void)?
     var onCreateNote: (() -> Void)?
     var onPencilClick: (() -> Void)?
-    var onClose: (() -> Void)?
     
     private var viewNotesButton: NSButton?
     private var calculatorButton: NSButton?
     private var createNoteButton: NSButton?
     private var pencilButton: NSButton?
-    private var closeButton: NSButton?
     
     private var visualEffectView: NSVisualEffectView?
     
@@ -97,7 +95,7 @@ final class MenuView: NSView {
     }
     
     private func updateButtonsTheme(isDark: Bool) {
-        let buttons = [createNoteButton, viewNotesButton, calculatorButton, pencilButton, closeButton].compactMap { $0 }
+        let buttons = [createNoteButton, viewNotesButton, calculatorButton, pencilButton].compactMap { $0 }
         
         for button in buttons {
             if let hoverButton = button as? HoverButton {
@@ -124,8 +122,7 @@ final class MenuView: NSView {
             ("square.and.pencil", #selector(createNoteButtonClicked)),
             ("note.text", #selector(viewNotesButtonClicked)),
             ("function", #selector(calculatorButtonClicked)),
-            ("pencil.tip", #selector(pencilButtonClicked)),
-            ("xmark.circle.fill", #selector(closeButtonClicked))
+            ("pencil.tip", #selector(pencilButtonClicked))
         ]
         
         let totalWidth = CGFloat(buttonConfigs.count) * buttonSize + CGFloat(buttonConfigs.count - 1) * buttonSpacing + padding * 2
@@ -152,8 +149,6 @@ final class MenuView: NSView {
                 calculatorButton = button
             case 3:
                 pencilButton = button
-            case 4:
-                closeButton = button
             default:
                 break
             }
@@ -212,10 +207,6 @@ final class MenuView: NSView {
     
     @objc private func pencilButtonClicked() {
         onPencilClick?()
-    }
-    
-    @objc private func closeButtonClicked() {
-        onClose?()
     }
 }
 

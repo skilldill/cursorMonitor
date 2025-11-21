@@ -14,6 +14,7 @@ final class CursorHighlighter {
     private var clickUpMonitor: Any?
     private var middleButtonMonitor: Any?
     private var keyDownMonitor: Any?
+    private var menuClickMonitor: Any?
 
     private var diameter: CGFloat {
         return CursorSettings.shared.size.diameter
@@ -176,12 +177,16 @@ final class CursorHighlighter {
         if let monitor = keyDownMonitor {
             NSEvent.removeMonitor(monitor)
         }
+        if let monitor = menuClickMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
 
         mouseMoveMonitor = nil
         clickDownMonitor = nil
         clickUpMonitor = nil
         middleButtonMonitor = nil
         keyDownMonitor = nil
+        menuClickMonitor = nil
 
         window?.orderOut(nil)
         menuWindow?.orderOut(nil)
@@ -426,10 +431,52 @@ final class CursorHighlighter {
             display: true
         )
         menuWindow.orderFrontRegardless()
+        
+        // Добавляем монитор для закрытия меню при клике вне его
+        setupMenuClickMonitor()
+    }
+    
+    private func setupMenuClickMonitor() {
+        // Удаляем предыдущий монитор, если он есть
+        if let monitor = menuClickMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        
+        // Добавляем монитор для кликов вне меню
+        menuClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown]
+        ) { [weak self] event in
+            guard let self = self,
+                  let menuWindow = self.menuWindow,
+                  menuWindow.isVisible else {
+                return
+            }
+            
+            // Проверяем, был ли клик вне окна меню
+            let clickLocation = NSEvent.mouseLocation
+            let menuFrame = menuWindow.frame
+            
+            // Если клик был вне меню, закрываем его с небольшой задержкой,
+            // чтобы кнопки меню успели обработать клик
+            if !menuFrame.contains(clickLocation) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                    // Проверяем еще раз, что меню все еще видимо
+                    // (если пользователь кликнул на кнопку, меню могло закрыться)
+                    if let menuWindow = self?.menuWindow, menuWindow.isVisible {
+                        self?.hideMenu()
+                    }
+                }
+            }
+        }
     }
     
     private func hideMenu() {
         menuWindow?.orderOut(nil)
+        // Удаляем монитор кликов при закрытии меню
+        if let monitor = menuClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            menuClickMonitor = nil
+        }
     }
     
     private func createMenuWindow() {
@@ -473,9 +520,6 @@ final class CursorHighlighter {
         }
         menuView.onPencilClick = { [weak self] in
             self?.startPencil()
-        }
-        menuView.onClose = { [weak self] in
-            self?.hideMenu()
         }
         
         panel.contentView = menuView
