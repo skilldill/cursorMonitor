@@ -80,6 +80,7 @@ enum CursorShape: String, CaseIterable {
     case hexagon = "hexagon"
     case triangle = "triangle"
     case rhombus = "rhombus"
+    case pentagon = "pentagon"
     
     var displayName: String {
         switch self {
@@ -88,6 +89,7 @@ enum CursorShape: String, CaseIterable {
         case .hexagon: return "Шестиугольник"
         case .triangle: return "Треугольник"
         case .rhombus: return "Ромб"
+        case .pentagon: return "Пятиугольник"
         }
     }
 }

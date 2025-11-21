@@ -260,6 +260,8 @@ final class HighlightView: NSView {
             drawTriangle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
         case .rhombus:
             drawRhombus(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+        case .pentagon:
+            drawPentagon(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
         }
 
         ctx.restoreGState()
@@ -509,6 +511,69 @@ final class HighlightView: NSView {
         var points: [CGPoint] = []
         for i in 0..<sides {
             let currentAngle = angle * CGFloat(i) - .pi / 2 + .pi
+            let x = cos(currentAngle) * radius
+            let y = sin(currentAngle) * radius
+            points.append(CGPoint(x: x, y: y))
+        }
+        
+        // Создаем путь со скругленными углами
+        for i in 0..<sides {
+            let currentPoint = points[i]
+            let nextPoint = points[(i + 1) % sides]
+            let prevPoint = points[(i - 1 + sides) % sides]
+            
+            // Вычисляем точки начала и конца скругления
+            let toCurrent = CGPoint(x: currentPoint.x - prevPoint.x, y: currentPoint.y - prevPoint.y)
+            let toNext = CGPoint(x: nextPoint.x - currentPoint.x, y: nextPoint.y - currentPoint.y)
+            let dist1 = sqrt(toCurrent.x * toCurrent.x + toCurrent.y * toCurrent.y)
+            let dist2 = sqrt(toNext.x * toNext.x + toNext.y * toNext.y)
+            
+            let startX = currentPoint.x - toCurrent.x / dist1 * cornerRadius
+            let startY = currentPoint.y - toCurrent.y / dist1 * cornerRadius
+            let endX = currentPoint.x + toNext.x / dist2 * cornerRadius
+            let endY = currentPoint.y + toNext.y / dist2 * cornerRadius
+            
+            if i == 0 {
+                path.move(to: CGPoint(x: startX, y: startY))
+            } else {
+                path.addLine(to: CGPoint(x: startX, y: startY))
+            }
+            
+            // Добавляем дугу для скругления угла
+            path.addQuadCurve(to: CGPoint(x: endX, y: endY), control: currentPoint)
+        }
+        path.closeSubpath()
+        return path
+    }
+    
+    private func drawPentagon(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+        // Увеличиваем радиус для более длинных граней (примерно на 20%)
+        let radius = size / 2 * 1.2
+        let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
+        
+        // Внешний пятиугольник
+        let outerPath = createRoundedPentagonPath(radius: radius, cornerRadius: cornerRadius)
+        ctx.addPath(outerPath)
+        ctx.setStrokeColor(base.cgColor)
+        ctx.setLineWidth(outerLineWidth)
+        ctx.strokePath()
+        
+        // Внутренний пятиугольник
+        let innerInset: CGFloat = 8
+        let innerRadius = radius - innerInset
+        let innerPath = createRoundedPentagonPath(radius: innerRadius, cornerRadius: max(cornerRadius - innerInset / 2, 0))
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
+    }
+    
+    private func createRoundedPentagonPath(radius: CGFloat, cornerRadius: CGFloat) -> CGMutablePath {
+        let path = CGMutablePath()
+        let sides = 5
+        let angle = .pi * 2 / CGFloat(sides)
+        
+        // Вычисляем точки для скругленных углов
+        var points: [CGPoint] = []
+        for i in 0..<sides {
+            let currentAngle = angle * CGFloat(i) - .pi / 2
             let x = cos(currentAngle) * radius
             let y = sin(currentAngle) * radius
             points.append(CGPoint(x: x, y: y))

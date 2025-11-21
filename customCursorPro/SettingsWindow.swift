@@ -41,7 +41,7 @@ class SettingsWindow: NSWindowController {
     
     private func createWindow() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 750),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 800),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -195,9 +195,9 @@ class SettingsWindow: NSWindowController {
     }
     
     private func setupPreview() {
-        let windowHeight: CGFloat = 750
+        let windowHeight: CGFloat = 800
         let windowWidth: CGFloat = 600
-        let previewContainer = NSView(frame: NSRect(x: 20, y: windowHeight - 240, width: windowWidth - 40, height: 200))
+        let previewContainer = NSView(frame: NSRect(x: 20, y: windowHeight - 220, width: windowWidth - 40, height: 200))
         previewContainer.wantsLayer = true
         previewContainer.layer?.cornerRadius = 12
         previewContainer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
@@ -244,7 +244,7 @@ class SettingsWindow: NSWindowController {
     }
     
     private func setupAppearanceSettings() {
-        let settingsY: CGFloat = 440
+        let settingsY: CGFloat = 500
         let labelWidth: CGFloat = 180
         let controlX: CGFloat = 220
         let controlWidth: CGFloat = 320
@@ -254,7 +254,7 @@ class SettingsWindow: NSWindowController {
         // Cursor Settings Section
         let cursorSectionLabel = createSectionLabel("Cursor Settings", y: currentY)
         contentContainer.addSubview(cursorSectionLabel)
-        currentY -= 30
+        currentY -= 25
         
         // Цвет курсора
         let colorLabel = createLabel("Cursor Color:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
@@ -341,12 +341,12 @@ class SettingsWindow: NSWindowController {
         
         opacityLabel = createLabel("\(Int(CursorSettings.shared.opacity * 100))%", frame: NSRect(x: controlX + 260, y: currentY, width: 60, height: 20))
         contentContainer.addSubview(opacityLabel)
-        currentY -= rowHeight + 10
+        currentY -= rowHeight + 5
         
         // Pencil Settings Section
         let pencilSectionLabel = createSectionLabel("Pencil Settings", y: currentY)
         contentContainer.addSubview(pencilSectionLabel)
-        currentY -= 30
+        currentY -= 25
         
         // Цвет карандаша
         let pencilColorLabel = createLabel("Pencil Color:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
@@ -389,12 +389,12 @@ class SettingsWindow: NSWindowController {
         
         pencilOpacityLabel = createLabel("\(Int(CursorSettings.shared.pencilOpacity * 100))%", frame: NSRect(x: controlX + 260, y: currentY, width: 60, height: 20))
         contentContainer.addSubview(pencilOpacityLabel)
-        currentY -= rowHeight + 10
+        currentY -= rowHeight + 5
         
         // Menu Settings Section
         let menuSectionLabel = createSectionLabel("Menu Settings", y: currentY)
         contentContainer.addSubview(menuSectionLabel)
-        currentY -= 30
+        currentY -= 25
         
         // Тема меню - Switch
         let menuThemeLabel = createLabel("Menu Theme:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
@@ -412,7 +412,7 @@ class SettingsWindow: NSWindowController {
         let themeLabel = createLabel(isDark ? "Dark" : "Light", frame: NSRect(x: controlX + 60, y: currentY, width: 100, height: 20))
         themeLabel.tag = 999 // Используем tag для обновления
         contentContainer.addSubview(themeLabel)
-        currentY -= rowHeight + 20
+        currentY -= rowHeight + 5
         
         // Подсказка о горячих клавишах
         let hintLabel = NSTextField(labelWithString: "💡 Tip: ⌘ + Click opens menu and closes pencil mode")
@@ -423,7 +423,7 @@ class SettingsWindow: NSWindowController {
         hintLabel.textColor = isDarkForHint ? NSColor.labelColor : NSColor(white: 0.1, alpha: 1.0)
         hintLabel.alignment = .left
         contentContainer.addSubview(hintLabel)
-        currentY -= 25
+        currentY -= 20
         
         // Кнопка "Apply" внизу под всеми элементами
         // Добавляем отступ от нижнего края окна (20px)
