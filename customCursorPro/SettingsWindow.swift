@@ -18,7 +18,6 @@ class SettingsWindow: NSWindowController {
     private var pencilOpacityLabel: NSTextField!
     private var previewView: HighlightView!
     private var highlighter: CursorHighlighter?
-    private var previewTimer: Timer?
     
     // Контейнеры
     private var appearanceContainer: NSView!
@@ -227,6 +226,20 @@ class SettingsWindow: NSWindowController {
         previewView.baseColor = CursorSettings.shared.color.color
         previewView.clickColor = CursorSettings.shared.clickColor.color
         previewView.opacity = CursorSettings.shared.opacity
+        
+        // Добавляем обработчики клика для превью
+        previewView.onClick = { [weak self] in
+            guard let self = self, let previewView = self.previewView else { return }
+            // Показываем состояние клика при нажатии
+            previewView.beginClick()
+        }
+        
+        previewView.onMouseUp = { [weak self] in
+            guard let self = self, let previewView = self.previewView else { return }
+            // Возвращаем в обычное состояние при отпускании кнопки
+            previewView.endClick()
+        }
+        
         previewContainer.addSubview(previewView)
     }
     
@@ -683,55 +696,14 @@ class SettingsWindow: NSWindowController {
         // Обновляем превью при открытии только если оно уже создано
         if previewView != nil {
             updatePreview()
-            startPreviewAnimation()
         }
     }
     
-    private func startPreviewAnimation() {
-        // Останавливаем предыдущий таймер, если он есть
-        previewTimer?.invalidate()
-        
-        // Начинаем с обычного состояния
-        previewView?.endClick()
-        
-        // Создаем таймер для автоматического переключения состояния
-        // Интервал = 3 секунды (обычное) + 1.5 секунды (нажатие) = 4.5 секунды
-        previewTimer = Timer.scheduledTimer(withTimeInterval: 4.5, repeats: true) { [weak self] _ in
-            guard let self = self, let previewView = self.previewView else { return }
-            
-            // Переключаем на состояние нажатия
-            previewView.beginClick()
-            
-            // Через 1.5 секунды возвращаем в обычное состояние
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                previewView.endClick()
-            }
-        }
-        
-        // Запускаем первый цикл сразу (обычное состояние 3 секунды, затем нажатие)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            guard let self = self, let previewView = self.previewView else { return }
-            previewView.beginClick()
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                previewView.endClick()
-            }
-        }
-    }
-    
-    private func stopPreviewAnimation() {
-        previewTimer?.invalidate()
-        previewTimer = nil
-        previewView?.endClick()
-    }
     
 }
 
 extension SettingsWindow: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
-        // Останавливаем анимацию превью
-        stopPreviewAnimation()
-        
         // Возобновляем основной курсор при закрытии настроек
         NotificationCenter.default.post(name: .settingsWindowWillClose, object: nil)
     }

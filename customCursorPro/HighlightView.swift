@@ -66,6 +66,8 @@ final class HighlightView: NSView {
     
     // Обработчик клика для разморозки курсора
     var onClick: (() -> Void)?
+    // Обработчик отпускания кнопки мыши
+    var onMouseUp: (() -> Void)?
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -568,5 +570,10 @@ final class HighlightView: NSView {
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
         onClick?()
+    }
+    
+    override func mouseUp(with event: NSEvent) {
+        super.mouseUp(with: event)
+        onMouseUp?()
     }
 }
