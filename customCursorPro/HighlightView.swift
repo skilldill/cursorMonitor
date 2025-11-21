@@ -100,6 +100,18 @@ final class HighlightView: NSView {
             name: .cursorShapeChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(innerGlowStyleChanged),
+            name: .innerGlowStyleChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(outerLineWidthChanged),
+            name: .outerLineWidthChanged,
+            object: nil
+        )
     }
     
     @objc private func colorChanged() {
@@ -125,6 +137,14 @@ final class HighlightView: NSView {
     }
     
     @objc private func shapeChanged() {
+        needsDisplay = true
+    }
+    
+    @objc private func innerGlowStyleChanged() {
+        needsDisplay = true
+    }
+    
+    @objc private func outerLineWidthChanged() {
         needsDisplay = true
     }
     
@@ -168,7 +188,7 @@ final class HighlightView: NSView {
         let base = (isPulsing ? clickColor : baseColor).withAlphaComponent(opacity)
 
         // Параметры линий
-        let outerLineWidth: CGFloat = 10
+        let outerLineWidth: CGFloat = CursorSettings.shared.outerLineWidth
         let innerLineWidth: CGFloat = 8
 
         // Немного отступим от краёв
@@ -238,6 +258,32 @@ final class HighlightView: NSView {
     
     // MARK: - Отрисовка форм
     
+    // Вспомогательная функция для рисования сегментированной линии используя dash pattern
+    private func drawSegmentedStroke(ctx: CGContext, path: CGPath, color: NSColor, lineWidth: CGFloat, segmentLength: CGFloat = 8, gapLength: CGFloat = 4) {
+        ctx.addPath(path)
+        ctx.setStrokeColor(color.cgColor)
+        ctx.setLineWidth(lineWidth)
+        ctx.setLineDash(phase: 0, lengths: [segmentLength, gapLength])
+        ctx.strokePath()
+        ctx.setLineDash(phase: 0, lengths: []) // Сбрасываем dash pattern
+    }
+    
+    // Вспомогательная функция для рисования внутреннего кольца (сплошного или сегментированного)
+    private func drawInnerRing(ctx: CGContext, path: CGPath, color: NSColor, lineWidth: CGFloat) {
+        let style = CursorSettings.shared.innerGlowStyle
+        switch style {
+        case .segmented:
+            drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: lineWidth, segmentLength: 8, gapLength: 4)
+        case .thinSegmented:
+            drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: lineWidth, segmentLength: 1, gapLength: 1)
+        case .solid:
+            ctx.addPath(path)
+            ctx.setStrokeColor(color.cgColor)
+            ctx.setLineWidth(lineWidth)
+            ctx.strokePath()
+        }
+    }
+    
     private func drawSquircle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
         let cornerRadius = size / 3.5 // Сильно скругленные углы
@@ -253,10 +299,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRect = rect.insetBy(dx: innerInset, dy: innerInset)
         let innerPath = CGPath(roundedRect: innerRect, cornerWidth: max(cornerRadius - innerInset / 2, 0), cornerHeight: max(cornerRadius - innerInset / 2, 0), transform: nil)
-        ctx.addPath(innerPath)
-        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
-        ctx.setLineWidth(innerLineWidth)
-        ctx.strokePath()
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
     }
     
     private func drawCircle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
@@ -275,10 +318,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRect = rect.insetBy(dx: innerInset, dy: innerInset)
         let innerPath = CGPath(roundedRect: innerRect, cornerWidth: max(cornerRadius - innerInset / 2, 0), cornerHeight: max(cornerRadius - innerInset / 2, 0), transform: nil)
-        ctx.addPath(innerPath)
-        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
-        ctx.setLineWidth(innerLineWidth)
-        ctx.strokePath()
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
     }
     
     private func drawHexagon(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
@@ -297,10 +337,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRadius = radius - innerInset
         let innerPath = createRoundedHexagonPath(radius: innerRadius, cornerRadius: max(cornerRadius - innerInset / 2, 0))
-        ctx.addPath(innerPath)
-        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
-        ctx.setLineWidth(innerLineWidth)
-        ctx.strokePath()
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
     }
     
     private func createRoundedHexagonPath(radius: CGFloat, cornerRadius: CGFloat) -> CGMutablePath {
@@ -363,10 +400,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRadius = radius - innerInset
         let innerPath = createRoundedTrianglePath(radius: innerRadius, cornerRadius: max(cornerRadius - innerInset / 2, 0))
-        ctx.addPath(innerPath)
-        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
-        ctx.setLineWidth(innerLineWidth)
-        ctx.strokePath()
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
     }
     
     private func createRoundedTrianglePath(radius: CGFloat, cornerRadius: CGFloat) -> CGMutablePath {
@@ -432,10 +466,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRect = rect.insetBy(dx: innerInset, dy: innerInset)
         let innerPath = CGPath(roundedRect: innerRect, cornerWidth: max(cornerRadius - innerInset / 2, 0), cornerHeight: max(cornerRadius - innerInset / 2, 0), transform: nil)
-        ctx.addPath(innerPath)
-        ctx.setStrokeColor(base.withAlphaComponent(0.35).cgColor)
-        ctx.setLineWidth(innerLineWidth)
-        ctx.strokePath()
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
     }
     
     // MARK: - Обработка кликов

@@ -92,6 +92,20 @@ enum CursorShape: String, CaseIterable {
     }
 }
 
+enum InnerGlowStyle: String, CaseIterable {
+    case solid = "solid"
+    case segmented = "segmented"
+    case thinSegmented = "thinSegmented"
+    
+    var displayName: String {
+        switch self {
+        case .solid: return "Сплошная"
+        case .segmented: return "Сегментированная"
+        case .thinSegmented: return "Тонкая сегментированная"
+        }
+    }
+}
+
 class CursorSettings {
     static let shared = CursorSettings()
     
@@ -104,6 +118,8 @@ class CursorSettings {
     private let pencilOpacityKey = "pencilOpacity"
     private let menuThemeKey = "menuTheme"
     private let cursorShapeKey = "cursorShape"
+    private let innerGlowStyleKey = "innerGlowStyle"
+    private let outerLineWidthKey = "outerLineWidth"
     
     var menuTheme: MenuTheme {
         get {
@@ -237,6 +253,34 @@ class CursorSettings {
         }
     }
     
+    var innerGlowStyle: InnerGlowStyle {
+        get {
+            if let rawValue = UserDefaults.standard.string(forKey: innerGlowStyleKey),
+               let style = InnerGlowStyle(rawValue: rawValue) {
+                return style
+            }
+            return .solid // По умолчанию сплошная
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: innerGlowStyleKey)
+            NotificationCenter.default.post(name: .innerGlowStyleChanged, object: nil)
+        }
+    }
+    
+    var outerLineWidth: CGFloat {
+        get {
+            let value = UserDefaults.standard.double(forKey: outerLineWidthKey)
+            if value > 0 {
+                return value
+            }
+            return 5.0 // По умолчанию 5.0
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: outerLineWidthKey)
+            NotificationCenter.default.post(name: .outerLineWidthChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -251,5 +295,7 @@ extension Notification.Name {
     static let pencilOpacityChanged = Notification.Name("pencilOpacityChanged")
     static let menuThemeChanged = Notification.Name("menuThemeChanged")
     static let appThemeChanged = Notification.Name("appThemeChanged")
+    static let innerGlowStyleChanged = Notification.Name("innerGlowStyleChanged")
+    static let outerLineWidthChanged = Notification.Name("outerLineWidthChanged")
 }
 

@@ -5,6 +5,9 @@ class SettingsWindow: NSWindowController {
     private var colorPopUp: NSPopUpButton!
     private var sizePopUp: NSPopUpButton!
     private var shapePopUp: NSPopUpButton!
+    private var innerGlowStylePopUp: NSPopUpButton!
+    private var outerLineWidthSlider: NSSlider!
+    private var outerLineWidthLabel: NSTextField!
     private var opacitySlider: NSSlider!
     private var opacityLabel: NSTextField!
     private var clickColorPopUp: NSPopUpButton!
@@ -113,6 +116,18 @@ class SettingsWindow: NSWindowController {
             self,
             selector: #selector(updatePreview),
             name: .cursorOpacityChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updatePreview),
+            name: .innerGlowStyleChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(updatePreview),
+            name: .outerLineWidthChanged,
             object: nil
         )
         NotificationCenter.default.addObserver(
@@ -272,6 +287,33 @@ class SettingsWindow: NSWindowController {
         contentContainer.addSubview(shapePopUp)
         currentY -= rowHeight
         
+        // Тип внутренней подсветки
+        let innerGlowStyleLabel = createLabel("Inner Glow Style:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(innerGlowStyleLabel)
+        
+        innerGlowStylePopUp = createPopUpButton(frame: NSRect(x: controlX, y: currentY - 3, width: controlWidth, height: 26))
+        setupInnerGlowStyleMenu()
+        innerGlowStylePopUp.target = self
+        innerGlowStylePopUp.action = #selector(innerGlowStyleChanged)
+        contentContainer.addSubview(innerGlowStylePopUp)
+        currentY -= rowHeight
+        
+        // Толщина внешней линии
+        let outerLineWidthTitleLabel = createLabel("Outer Line Width:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
+        contentContainer.addSubview(outerLineWidthTitleLabel)
+        
+        outerLineWidthSlider = createSlider(frame: NSRect(x: controlX, y: currentY, width: 250, height: 20))
+        outerLineWidthSlider.minValue = 1.0
+        outerLineWidthSlider.maxValue = 10.0
+        outerLineWidthSlider.doubleValue = Double(CursorSettings.shared.outerLineWidth)
+        outerLineWidthSlider.target = self
+        outerLineWidthSlider.action = #selector(outerLineWidthChanged)
+        contentContainer.addSubview(outerLineWidthSlider)
+        
+        outerLineWidthLabel = createLabel(String(format: "%.1f", CursorSettings.shared.outerLineWidth), frame: NSRect(x: controlX + 260, y: currentY, width: 60, height: 20))
+        contentContainer.addSubview(outerLineWidthLabel)
+        currentY -= rowHeight
+        
         // Прозрачность
         let opacityTitleLabel = createLabel("Transparency:", frame: NSRect(x: 40, y: currentY, width: labelWidth, height: 20))
         contentContainer.addSubview(opacityTitleLabel)
@@ -401,6 +443,9 @@ class SettingsWindow: NSWindowController {
         
         let currentShape = CursorSettings.shared.shape
         shapePopUp.selectItem(withTitle: currentShape.displayName)
+        
+        let currentInnerGlowStyle = CursorSettings.shared.innerGlowStyle
+        innerGlowStylePopUp.selectItem(withTitle: currentInnerGlowStyle.displayName)
     }
     
     private func createLabel(_ text: String, frame: NSRect) -> NSTextField {
@@ -505,6 +550,15 @@ class SettingsWindow: NSWindowController {
         }
     }
     
+    private func setupInnerGlowStyleMenu() {
+        innerGlowStylePopUp.removeAllItems()
+        for style in InnerGlowStyle.allCases {
+            let menuItem = NSMenuItem(title: style.displayName, action: nil, keyEquivalent: "")
+            menuItem.representedObject = style
+            innerGlowStylePopUp.menu?.addItem(menuItem)
+        }
+    }
+    
     private func setupClickColorMenu() {
         clickColorPopUp.removeAllItems()
         for color in CursorColor.allCases {
@@ -544,6 +598,21 @@ class SettingsWindow: NSWindowController {
             CursorSettings.shared.shape = shape
             updatePreview()
         }
+    }
+    
+    @objc private func innerGlowStyleChanged() {
+        if let selectedItem = innerGlowStylePopUp.selectedItem,
+           let style = selectedItem.representedObject as? InnerGlowStyle {
+            CursorSettings.shared.innerGlowStyle = style
+            updatePreview()
+        }
+    }
+    
+    @objc private func outerLineWidthChanged() {
+        let newWidth = CGFloat(outerLineWidthSlider.doubleValue)
+        CursorSettings.shared.outerLineWidth = newWidth
+        outerLineWidthLabel.stringValue = String(format: "%.1f", newWidth)
+        updatePreview()
     }
     
     @objc private func clickColorChanged() {
