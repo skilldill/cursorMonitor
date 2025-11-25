@@ -50,7 +50,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.title = "◉" // Можно заменить на свою иконку
+            // Загружаем иконку из Assets (теперь она в основном Assets.xcassets, а не в Preview)
+            if let iconImage = NSImage(named: "MenuBarIcon") {
+                // Устанавливаем размер для меню-бара (22x22 для Retina = 44x44)
+                iconImage.size = NSSize(width: 22, height: 22)
+                // Делаем изображение шаблоном для правильного отображения в светлой/темной теме
+                iconImage.isTemplate = true
+                button.image = iconImage
+                button.imagePosition = .imageOnly
+            } else {
+                // Fallback на текст, если изображение не найдено
+                button.title = "◉"
+            }
         }
 
         let menu = NSMenu()
