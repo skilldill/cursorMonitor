@@ -397,7 +397,8 @@ final class HighlightView: NSView {
         let style = CursorSettings.shared.innerGlowStyle
         switch style {
         case .segmented:
-            drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: lineWidth, segmentLength: 8, gapLength: 4)
+            // Сегментированная: тоньше чем было, но на 2 пикселя толще чем тонкая сегментация (1 + 2 = 3)
+            drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: lineWidth, segmentLength: 3, gapLength: 2)
         case .thinSegmented:
             drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: lineWidth, segmentLength: 1, gapLength: 1)
         case .solid:

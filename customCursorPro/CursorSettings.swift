@@ -41,23 +41,35 @@ enum CursorColor: String, CaseIterable {
 }
 
 enum CursorSize: String, CaseIterable {
-    case small = "small"
-    case medium = "medium"
-    case large = "large"
+    case xs = "xs"
+    case s = "s"
+    case m = "m"
+    case l = "l"
+    case xl = "xl"
+    case xxl = "xxl"
+    case xxxl = "xxxl"
     
     var displayName: String {
         switch self {
-        case .small: return "Маленький"
-        case .medium: return "Средний"
-        case .large: return "Большой"
+        case .xs: return "XS"
+        case .s: return "S"
+        case .m: return "M"
+        case .l: return "L"
+        case .xl: return "XL"
+        case .xxl: return "XXL"
+        case .xxxl: return "XXXL"
         }
     }
     
     var diameter: CGFloat {
         switch self {
-        case .small: return 70
-        case .medium: return 90
-        case .large: return 110
+        case .xs: return 50
+        case .s: return 70  // Текущий маленький
+        case .m: return 90  // Текущий средний
+        case .l: return 110 // Текущий большой
+        case .xl: return 130
+        case .xxl: return 150
+        case .xxxl: return 170
         }
     }
 }
@@ -165,7 +177,16 @@ class CursorSettings {
                let size = CursorSize(rawValue: rawValue) {
                 return size
             }
-            return .medium // По умолчанию
+            // Если сохранен старый размер, конвертируем его в новый
+            if let oldRawValue = UserDefaults.standard.string(forKey: sizeKey) {
+                switch oldRawValue {
+                case "small": return .s
+                case "medium": return .m
+                case "large": return .l
+                default: break
+                }
+            }
+            return .m // По умолчанию средний (M)
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: sizeKey)
