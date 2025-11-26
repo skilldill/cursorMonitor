@@ -61,6 +61,13 @@ final class HighlightView: NSView {
         }
     }
     
+    // Анимируемая толщина внутреннего кольца (для эффекта утолщения при клике для размеров M и выше)
+    private var animatedInnerLineWidth: CGFloat = 8.0 {
+        didSet {
+            needsDisplay = true
+        }
+    }
+    
     // Таймер для анимации
     private var animationTimer: Timer?
     
@@ -300,8 +307,22 @@ final class HighlightView: NSView {
         isPulsing = true
         currentScale = 0.9   // чуть уменьшаем фигуру
         
-        // Анимируем переход цвета и размера
-        animateToScale(0.9, colorProgress: 1.0)
+        // Проверяем размер курсора и увеличиваем толщину внутренней части:
+        // - Для L и выше: в 2.5 раза
+        // - Для M: в 1.5 раза
+        // - Для XS и S: без изменений
+        let currentSize = CursorSettings.shared.size
+        let targetInnerLineWidth: CGFloat
+        if currentSize == .l || currentSize == .xl || currentSize == .xxl || currentSize == .xxxl {
+            targetInnerLineWidth = 8.0 * 2.5 // Увеличиваем в 2.5 раза для размеров L и выше
+        } else if currentSize == .m {
+            targetInnerLineWidth = 8.0 * 1.5 // Увеличиваем в 1.5 раза для размера M
+        } else {
+            targetInnerLineWidth = 8.0 // Для размеров XS и S оставляем стандартную толщину
+        }
+        
+        // Анимируем переход цвета, размера и толщины внутреннего кольца
+        animateToScale(0.9, colorProgress: 1.0, innerLineWidth: targetInnerLineWidth)
     }
 
     /// Вызывается при mouseUp
@@ -309,17 +330,18 @@ final class HighlightView: NSView {
         isPulsing = false
         currentScale = 1.0   // возвращаем нормальный размер
         
-        // Анимируем возврат цвета и размера
-        animateToScale(1.0, colorProgress: 0.0)
+        // Анимируем возврат цвета, размера и толщины внутреннего кольца
+        animateToScale(1.0, colorProgress: 0.0, innerLineWidth: 8.0)
     }
     
-    /// Анимирует переход к указанному масштабу и прогрессу цвета
-    private func animateToScale(_ targetScale: CGFloat, colorProgress: CGFloat) {
+    /// Анимирует переход к указанному масштабу, прогрессу цвета и толщине внутреннего кольца
+    private func animateToScale(_ targetScale: CGFloat, colorProgress: CGFloat, innerLineWidth: CGFloat = 8.0) {
         // Останавливаем предыдущую анимацию, если она есть
         animationTimer?.invalidate()
         
         let startScale = animatedScale
         let startColorProgress = animatedColorProgress
+        let startInnerLineWidth = animatedInnerLineWidth
         let duration: TimeInterval = 0.05
         let startTime = Date()
         
@@ -341,6 +363,7 @@ final class HighlightView: NSView {
             // Интерполируем значения
             self.animatedScale = startScale + (targetScale - startScale) * easedProgress
             self.animatedColorProgress = startColorProgress + (colorProgress - startColorProgress) * easedProgress
+            self.animatedInnerLineWidth = startInnerLineWidth + (innerLineWidth - startInnerLineWidth) * easedProgress
             
             if progress >= 1.0 {
                 timer.invalidate()
@@ -348,6 +371,7 @@ final class HighlightView: NSView {
                 // Убеждаемся, что финальные значения установлены точно
                 self.animatedScale = targetScale
                 self.animatedColorProgress = colorProgress
+                self.animatedInnerLineWidth = innerLineWidth
             }
         }
         
@@ -372,11 +396,26 @@ final class HighlightView: NSView {
     private func simplePulseFallback() {
         isPulsing = true
         currentScale = 0.9
-        animateToScale(0.9, colorProgress: 1.0)
+        
+        // Проверяем размер курсора и увеличиваем толщину внутренней части:
+        // - Для L и выше: в 2.5 раза
+        // - Для M: в 1.5 раза
+        // - Для XS и S: без изменений
+        let currentSize = CursorSettings.shared.size
+        let targetInnerLineWidth: CGFloat
+        if currentSize == .l || currentSize == .xl || currentSize == .xxl || currentSize == .xxxl {
+            targetInnerLineWidth = 8.0 * 2.5 // Увеличиваем в 2.5 раза для размеров L и выше
+        } else if currentSize == .m {
+            targetInnerLineWidth = 8.0 * 1.5 // Увеличиваем в 1.5 раза для размера M
+        } else {
+            targetInnerLineWidth = 8.0 // Для размеров XS и S оставляем стандартную толщину
+        }
+        
+        animateToScale(0.9, colorProgress: 1.0, innerLineWidth: targetInnerLineWidth)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.isPulsing = false
             self?.currentScale = 1.0
-            self?.animateToScale(1.0, colorProgress: 0.0)
+            self?.animateToScale(1.0, colorProgress: 0.0, innerLineWidth: 8.0)
         }
     }
     
@@ -394,17 +433,20 @@ final class HighlightView: NSView {
     
     // Вспомогательная функция для рисования внутреннего кольца (сплошного или сегментированного)
     private func drawInnerRing(ctx: CGContext, path: CGPath, color: NSColor, lineWidth: CGFloat) {
+        // Используем анимированную толщину вместо переданного параметра для эффекта клика
+        let actualLineWidth = animatedInnerLineWidth
+        
         let style = CursorSettings.shared.innerGlowStyle
         switch style {
         case .segmented:
             // Сегментированная: тоньше чем было, но на 2 пикселя толще чем тонкая сегментация (1 + 2 = 3)
-            drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: lineWidth, segmentLength: 3, gapLength: 2)
+            drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: actualLineWidth, segmentLength: 3, gapLength: 2)
         case .thinSegmented:
-            drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: lineWidth, segmentLength: 1, gapLength: 1)
+            drawSegmentedStroke(ctx: ctx, path: path, color: color, lineWidth: actualLineWidth, segmentLength: 1, gapLength: 1)
         case .solid:
             ctx.addPath(path)
             ctx.setStrokeColor(color.cgColor)
-            ctx.setLineWidth(lineWidth)
+            ctx.setLineWidth(actualLineWidth)
             ctx.strokePath()
         }
     }
