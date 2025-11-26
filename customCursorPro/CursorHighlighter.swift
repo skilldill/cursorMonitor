@@ -12,7 +12,10 @@ final class CursorHighlighter {
     private var mouseMoveMonitor: Any?
     private var clickDownMonitor: Any?
     private var clickUpMonitor: Any?
-    private var middleButtonMonitor: Any?
+    private var rightClickDownMonitor: Any?
+    private var rightClickUpMonitor: Any?
+    private var middleButtonDownMonitor: Any?
+    private var middleButtonUpMonitor: Any?
     private var keyDownMonitor: Any?
     private var menuClickMonitor: Any?
 
@@ -33,6 +36,9 @@ final class CursorHighlighter {
     
     // Скрытие курсора при вводе текста
     private var isHiddenForTextInput = false
+    
+    // Отслеживание состояния колесика мыши
+    private var isMiddleButtonPressed = false
     
     // Позиция для меню (справа от курсора)
     private let menuOffset: CGFloat = 20
@@ -171,7 +177,16 @@ final class CursorHighlighter {
         if let monitor = clickUpMonitor {
             NSEvent.removeMonitor(monitor)
         }
-        if let monitor = middleButtonMonitor {
+        if let monitor = rightClickDownMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = rightClickUpMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = middleButtonDownMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = middleButtonUpMonitor {
             NSEvent.removeMonitor(monitor)
         }
         if let monitor = keyDownMonitor {
@@ -184,7 +199,10 @@ final class CursorHighlighter {
         mouseMoveMonitor = nil
         clickDownMonitor = nil
         clickUpMonitor = nil
-        middleButtonMonitor = nil
+        rightClickDownMonitor = nil
+        rightClickUpMonitor = nil
+        middleButtonDownMonitor = nil
+        middleButtonUpMonitor = nil
         keyDownMonitor = nil
         menuClickMonitor = nil
 
@@ -195,6 +213,7 @@ final class CursorHighlighter {
         // Сброс состояния
         isFrozen = false
         frozenPosition = nil
+        isMiddleButtonPressed = false
     }
 
     // Создаём прозрачное окно поверх всех экранов/спейсов
@@ -260,7 +279,7 @@ final class CursorHighlighter {
     private func startMonitoring() {
         // Двигаем за мышью по всем экранам
         mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]
+            matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
         ) { [weak self] _ in
             // Показываем курсор при движении мыши, если он был скрыт для ввода текста
             self?.updatePositionToMouse()
@@ -298,23 +317,55 @@ final class CursorHighlighter {
             self?.highlightView?.endClick()
         }
         
-        // Колесико мыши (средняя кнопка): нажатие для открытия меню или отключения карандаша
-        middleButtonMonitor = NSEvent.addGlobalMonitorForEvents(
+        // Отслеживание нажатия колесика для комбинации с правой кнопкой и визуального эффекта
+        middleButtonDownMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.otherMouseDown]
         ) { [weak self] event in
             guard let self = self else { return }
-            // Проверяем, что это именно колесико (buttonNumber == 2)
             if event.buttonNumber == 2 {
-                // Если карандаш включен, отключаем его
-                if self.drawingWindow?.isDrawing == true {
-                    self.stopPencil()
-                } else if self.menuWindow?.isVisible == true {
-                    // Если меню уже открыто, закрываем его
-                    self.hideMenu()
-                } else {
-                    // Иначе открываем меню
-                    self.showMenu()
+                self.isMiddleButtonPressed = true
+                // Проверяем, не зажата ли правая кнопка - если нет, показываем визуальный эффект
+                let pressedButtons = NSEvent.pressedMouseButtons
+                if pressedButtons & 0x2 == 0 { // Правая кнопка не зажата (бит 0x2)
+                    self.highlightView?.beginClick()
                 }
+            }
+        }
+        
+        // Отслеживание отпускания колесика
+        middleButtonUpMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.otherMouseUp]
+        ) { [weak self] event in
+            guard let self = self else { return }
+            if event.buttonNumber == 2 {
+                self.isMiddleButtonPressed = false
+                // Проверяем, не зажата ли правая кнопка - если нет, завершаем визуальный эффект
+                let pressedButtons = NSEvent.pressedMouseButtons
+                if pressedButtons & 0x2 == 0 { // Правая кнопка не зажата
+                    self.highlightView?.endClick()
+                }
+            }
+        }
+        
+        // Правая кнопка мыши: mouseDown (для визуального эффекта как у левой кнопки)
+        rightClickDownMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.rightMouseDown]
+        ) { [weak self] event in
+            guard let self = self else { return }
+            // Всегда показываем визуальный эффект при нажатии правой кнопки
+            // (работает как отдельно, так и в комбинации с колесиком)
+            self.highlightView?.beginClick()
+        }
+        
+        // Правая кнопка мыши: mouseUp (для визуального эффекта)
+        rightClickUpMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.rightMouseUp]
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            // Проверяем, зажато ли колесико - если нет, завершаем эффект
+            // Если колесико зажато, эффект продолжит работать до его отпускания
+            if !self.isMiddleButtonPressed {
+                self.highlightView?.endClick()
             }
         }
         
@@ -566,7 +617,6 @@ final class CursorHighlighter {
     
     private func updateNote(noteId: UUID, text: String) {
         NotesStorage.shared.updateNote(withId: noteId, newText: text)
-        print("Заметка обновлена: \(text)")
         // Обновляем окно просмотра заметок, если оно открыто
         notesViewWindow?.showWindow()
     }
@@ -599,7 +649,6 @@ final class CursorHighlighter {
     private func saveNote(text: String) {
         let note = Note(text: text)
         NotesStorage.shared.addNote(note)
-        print("Заметка сохранена: \(text)")
     }
     
     private func startPencil() {
