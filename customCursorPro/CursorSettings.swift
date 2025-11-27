@@ -130,6 +130,7 @@ class CursorSettings {
     private let pencilColorKey = "pencilColor"
     private let pencilLineWidthKey = "pencilLineWidth"
     private let pencilOpacityKey = "pencilOpacity"
+    private let pencilGlowEnabledKey = "pencilGlowEnabled"
     private let menuThemeKey = "menuTheme"
     private let cursorShapeKey = "cursorShape"
     private let innerGlowStyleKey = "innerGlowStyle"
@@ -264,6 +265,20 @@ class CursorSettings {
         }
     }
     
+    var pencilGlowEnabled: Bool {
+        get {
+            // Проверяем, установлено ли значение (по умолчанию false - старый режим)
+            if UserDefaults.standard.object(forKey: pencilGlowEnabledKey) != nil {
+                return UserDefaults.standard.bool(forKey: pencilGlowEnabledKey)
+            }
+            return false // По умолчанию выключено (старый режим)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: pencilGlowEnabledKey)
+            NotificationCenter.default.post(name: .pencilGlowEnabledChanged, object: nil)
+        }
+    }
+    
     var shape: CursorShape {
         get {
             if let rawValue = UserDefaults.standard.string(forKey: cursorShapeKey),
@@ -356,6 +371,7 @@ extension Notification.Name {
     static let pencilColorChanged = Notification.Name("pencilColorChanged")
     static let pencilLineWidthChanged = Notification.Name("pencilLineWidthChanged")
     static let pencilOpacityChanged = Notification.Name("pencilOpacityChanged")
+    static let pencilGlowEnabledChanged = Notification.Name("pencilGlowEnabledChanged")
     static let menuThemeChanged = Notification.Name("menuThemeChanged")
     static let appThemeChanged = Notification.Name("appThemeChanged")
     static let innerGlowStyleChanged = Notification.Name("innerGlowStyleChanged")

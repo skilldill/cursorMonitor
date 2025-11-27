@@ -253,6 +253,12 @@ class DrawingView: NSView {
             name: .pencilOpacityChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(pencilSettingsChanged),
+            name: .pencilGlowEnabledChanged,
+            object: nil
+        )
     }
     
     @objc private func pencilSettingsChanged() {
@@ -312,21 +318,29 @@ class DrawingView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        
         // Получаем все пути из менеджера состояния
         let paths = stateManager.getPaths()
         let currentPathPoints = stateManager.getCurrentPathPoints()
         let currentPathColor = stateManager.getCurrentPathColor()
         let currentPathOpacity = stateManager.getCurrentPathOpacity()
         
-        // Рисуем все сохраненные пути с их цветами и прозрачностью
+        // Рисуем все сохраненные пути
         for drawingPath in paths {
             // Проверяем, пересекается ли путь с текущим экраном
             if drawingPath.intersects(screenFrame: screenFrame) {
                 // Создаем путь в локальных координатах для текущего экрана
                 let localPath = drawingPath.createBezierPath(for: screenFrame)
                 
-                drawingPath.color.withAlphaComponent(drawingPath.opacity).setStroke()
-                localPath.stroke()
+                // Рисуем в зависимости от настройки свечения
+                if CursorSettings.shared.pencilGlowEnabled {
+                    drawGlowingPath(context: context, path: localPath, color: drawingPath.color, opacity: drawingPath.opacity, lineWidth: drawingPath.lineWidth)
+                } else {
+                    // Старый режим - обычная цветная линия
+                    drawingPath.color.withAlphaComponent(drawingPath.opacity).setStroke()
+                    localPath.stroke()
+                }
             }
         }
         
@@ -358,10 +372,71 @@ class DrawingView: NSView {
                     }
                 }
                 
-                currentPathColor.withAlphaComponent(currentPathOpacity).setStroke()
-                localPath.stroke()
+                // Рисуем в зависимости от настройки свечения
+                if CursorSettings.shared.pencilGlowEnabled {
+                    drawGlowingPath(context: context, path: localPath, color: currentPathColor, opacity: currentPathOpacity, lineWidth: CursorSettings.shared.pencilLineWidth)
+                } else {
+                    // Старый режим - обычная цветная линия
+                    currentPathColor.withAlphaComponent(currentPathOpacity).setStroke()
+                    localPath.stroke()
+                }
             }
         }
+    }
+    
+    // Рисует путь с эффектом свечения: белая линия с цветной тенью
+    private func drawGlowingPath(context: CGContext, path: NSBezierPath, color: NSColor, opacity: CGFloat, lineWidth: CGFloat) {
+        context.saveGState()
+        
+        // Создаем CGPath из NSBezierPath
+        let cgPath = CGMutablePath()
+        var points = [NSPoint](repeating: .zero, count: 3)
+        
+        for i in 0..<path.elementCount {
+            let element = path.element(at: i, associatedPoints: &points)
+            
+            switch element {
+            case .moveTo:
+                cgPath.move(to: points[0])
+            case .lineTo:
+                cgPath.addLine(to: points[0])
+            case .curveTo:
+                cgPath.addCurve(to: points[2], control1: points[0], control2: points[1])
+            case .closePath:
+                cgPath.closeSubpath()
+            @unknown default:
+                break
+            }
+        }
+        
+        // Настраиваем параметры линии
+        context.setLineWidth(lineWidth)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        
+        // Рисуем цветную тень (размытие)
+        let shadowColor = color.withAlphaComponent(opacity)
+        context.setShadow(
+            offset: .zero,
+            blur: lineWidth * 2.5, // Размытие пропорционально толщине линии
+            color: shadowColor.cgColor
+        )
+        
+        // Рисуем тень
+        context.addPath(cgPath)
+        context.setStrokeColor(shadowColor.cgColor)
+        context.strokePath()
+        
+        // Отключаем тень для белой линии
+        context.setShadow(offset: .zero, blur: 0, color: nil)
+        
+        // Рисуем белую линию поверх тени
+        context.addPath(cgPath)
+        context.setStrokeColor(NSColor.white.withAlphaComponent(opacity).cgColor)
+        context.setLineWidth(lineWidth * 0.7) // Немного тоньше для лучшего эффекта
+        context.strokePath()
+        
+        context.restoreGState()
     }
 }
 

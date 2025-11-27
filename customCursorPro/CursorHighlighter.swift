@@ -9,6 +9,7 @@ final class CursorHighlighter {
     private var noteInputWindow: NoteInputWindow?
     private var notesViewWindow: NotesViewWindow?
     private var drawingWindow: DrawingWindow?
+    private var pencilSettingsWindow: NSWindow?
     private var mouseMoveMonitor: Any?
     private var clickDownMonitor: Any?
     private var clickUpMonitor: Any?
@@ -209,6 +210,7 @@ final class CursorHighlighter {
         window?.orderOut(nil)
         menuWindow?.orderOut(nil)
         drawingWindow?.stopDrawing()
+        pencilSettingsWindow?.orderOut(nil)
         
         // Сброс состояния
         isFrozen = false
@@ -694,6 +696,9 @@ final class CursorHighlighter {
         // Запускаем рисование
         drawingWindow?.startDrawing()
         hideMenu()
+        
+        // Показываем панель настроек карандаша
+        showPencilSettingsPanel()
     }
     
     private func stopPencil() {
@@ -725,6 +730,9 @@ final class CursorHighlighter {
             updatePositionToMouse()
         }
         hideMenu()
+        
+        // Скрываем панель настроек карандаша
+        hidePencilSettingsPanel()
     }
 
     // Позиционирование окна по глобальным координатам мыши
@@ -764,5 +772,78 @@ final class CursorHighlighter {
         }
 
         window.orderFrontRegardless()
+    }
+    
+    private func showPencilSettingsPanel() {
+        // Создаем окно панели настроек, если его еще нет
+        if pencilSettingsWindow == nil {
+            createPencilSettingsWindow()
+        }
+        
+        guard let pencilSettingsWindow = pencilSettingsWindow else { return }
+        
+        // Находим экран, на котором находится курсор
+        let currentPos = NSEvent.mouseLocation
+        var targetScreen = NSScreen.main
+        
+        for screen in NSScreen.screens {
+            if screen.frame.contains(currentPos) {
+                targetScreen = screen
+                break
+            }
+        }
+        
+        guard let screen = targetScreen else { return }
+        
+        let screenFrame = screen.frame
+        let panelWidth: CGFloat = 300
+        let panelHeight: CGFloat = 250
+        
+        // Позиционируем в правом нижнем углу экрана
+        let panelX = screenFrame.maxX - panelWidth - 20
+        let panelY = screenFrame.minY + 20
+        
+        pencilSettingsWindow.setFrame(
+            NSRect(x: panelX, y: panelY, width: panelWidth, height: panelHeight),
+            display: true
+        )
+        pencilSettingsWindow.orderFrontRegardless()
+    }
+    
+    private func hidePencilSettingsPanel() {
+        pencilSettingsWindow?.orderOut(nil)
+    }
+    
+    private func createPencilSettingsWindow() {
+        let panelWidth: CGFloat = 300
+        let panelHeight: CGFloat = 250
+        
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        
+        panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.ignoresMouseEvents = false
+        
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.screenSaverWindow)) + 1)
+        
+        panel.collectionBehavior = [
+            .canJoinAllSpaces,
+            .fullScreenAuxiliary,
+            .ignoresCycle
+        ]
+        
+        let settingsView = PencilSettingsPanel(frame: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight))
+        settingsView.wantsLayer = true
+        
+        panel.contentView = settingsView
+        self.pencilSettingsWindow = panel
     }
 }
