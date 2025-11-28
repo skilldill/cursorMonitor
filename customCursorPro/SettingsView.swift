@@ -37,9 +37,7 @@ struct SettingsView: View {
         }
         .frame(minWidth: 500, minHeight: 600)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            VisualEffectView(material: .hudWindow, isDark: true)
-        )
+        .background(Color(red: 0.15, green: 0.18, blue: 0.22))
         .onAppear {
             setupNotifications()
         }
@@ -427,33 +425,6 @@ struct InnerGlowStylePickerView: View {
     }
 }
 
-// MARK: - Visual Effect View
-struct VisualEffectView: NSViewRepresentable {
-    let material: NSVisualEffectView.Material
-    let isDark: Bool
-    
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = .behindWindow
-        view.state = .active
-        
-        // Добавляем темный фон для большей непрозрачности
-        if isDark {
-            view.wantsLayer = true
-            view.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.9).cgColor
-        }
-        
-        return view
-    }
-    
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = material
-        if isDark {
-            nsView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.9).cgColor
-        }
-    }
-}
 
 // MARK: - Custom Slider (Solid Line)
 struct CustomSlider: NSViewRepresentable {
