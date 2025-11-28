@@ -100,6 +100,12 @@ final class CursorHighlighter {
             name: .hideWhenInactiveChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(cursorPositionUpdate),
+            name: .cursorPositionUpdate,
+            object: nil
+        )
     }
     
     @objc private func sizeChanged() {
@@ -904,6 +910,11 @@ final class CursorHighlighter {
             // Если настройка включена, запускаем таймер
             resetInactivityTimer()
         }
+    }
+    
+    @objc private func cursorPositionUpdate() {
+        // Обновляем позицию курсора при рисовании правой кнопкой мыши
+        updatePositionToMouse()
     }
     
     private func showPencilSettingsPanel() {

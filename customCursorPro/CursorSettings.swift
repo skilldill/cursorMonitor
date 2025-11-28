@@ -394,5 +394,6 @@ extension Notification.Name {
     static let cursorShadowColorChanged = Notification.Name("cursorShadowColorChanged")
     static let cursorShadowBrightnessChanged = Notification.Name("cursorShadowBrightnessChanged")
     static let hideWhenInactiveChanged = Notification.Name("hideWhenInactiveChanged")
+    static let cursorPositionUpdate = Notification.Name("cursorPositionUpdate")
 }
 

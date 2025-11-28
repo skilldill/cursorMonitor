@@ -296,6 +296,9 @@ class DrawingView: NSView {
         
         // Добавляем точку через менеджер состояния
         stateManager.addPointToPath(globalLocation)
+        
+        // Уведомляем об обновлении позиции курсора
+        NotificationCenter.default.post(name: .cursorPositionUpdate, object: nil)
     }
     
     override func mouseUp(with event: NSEvent) {
@@ -305,6 +308,52 @@ class DrawingView: NSView {
         
         // Завершаем путь через менеджер состояния
         stateManager.endPath()
+    }
+    
+    override func rightMouseDown(with event: NSEvent) {
+        super.rightMouseDown(with: event)
+        
+        // Если нажата Command, отключаем карандаш
+        if event.modifierFlags.contains(.command) {
+            onStopDrawing?()
+            return
+        }
+        
+        // Получаем глобальные координаты мыши
+        let globalLocation = NSEvent.mouseLocation
+        
+        // Начинаем путь через менеджер состояния
+        stateManager.startPath(at: globalLocation)
+        
+        // Уведомляем об обновлении позиции курсора
+        NotificationCenter.default.post(name: .cursorPositionUpdate, object: nil)
+    }
+    
+    override func rightMouseDragged(with event: NSEvent) {
+        super.rightMouseDragged(with: event)
+        
+        guard stateManager.getIsDrawing() else { return }
+        
+        // Получаем глобальные координаты мыши
+        let globalLocation = NSEvent.mouseLocation
+        
+        // Добавляем точку через менеджер состояния
+        stateManager.addPointToPath(globalLocation)
+        
+        // Уведомляем об обновлении позиции курсора
+        NotificationCenter.default.post(name: .cursorPositionUpdate, object: nil)
+    }
+    
+    override func rightMouseUp(with event: NSEvent) {
+        super.rightMouseUp(with: event)
+        
+        guard stateManager.getIsDrawing() else { return }
+        
+        // Завершаем путь через менеджер состояния
+        stateManager.endPath()
+        
+        // Уведомляем об обновлении позиции курсора
+        NotificationCenter.default.post(name: .cursorPositionUpdate, object: nil)
     }
     
     override func otherMouseDown(with event: NSEvent) {
