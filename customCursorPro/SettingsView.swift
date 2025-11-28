@@ -22,11 +22,6 @@ struct SettingsView: View {
                     .padding(.top, 30)
                     .padding(.horizontal, 20)
                 
-                // Pencil Settings Section
-                pencilSettingsSection
-                    .padding(.top, 30)
-                    .padding(.horizontal, 20)
-                
                 // Tip
                 tipSection
                     .padding(.top, 20)
@@ -62,7 +57,7 @@ struct SettingsView: View {
             
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.black.opacity(0.2))
+                    .fill(Color.black.opacity(0.4))
                     .frame(height: 200)
                 
                 HighlightViewRepresentable(
@@ -88,168 +83,127 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 20) {
             sectionHeader("Cursor Settings")
             
-            SettingRow(label: "Cursor Color:") {
-                ColorPickerView(
-                    selection: Binding(
-                        get: { CursorSettings.shared.color },
-                        set: { CursorSettings.shared.color = $0 }
-                    ),
-                    onSelectionChange: { color in
-                        CursorSettings.shared.color = color
+            VStack(spacing: 16) {
+                SettingRow(label: "Cursor Color:") {
+                    ColorPickerView(
+                        selection: Binding(
+                            get: { CursorSettings.shared.color },
+                            set: { CursorSettings.shared.color = $0 }
+                        ),
+                        onSelectionChange: { color in
+                            CursorSettings.shared.color = color
+                        }
+                    )
+                }
+                
+                SettingRow(label: "Click Color:") {
+                    ColorPickerView(
+                        selection: Binding(
+                            get: { CursorSettings.shared.clickColor },
+                            set: { CursorSettings.shared.clickColor = $0 }
+                        ),
+                        onSelectionChange: { color in
+                            CursorSettings.shared.clickColor = color
+                        }
+                    )
+                }
+                
+                SettingRow(label: "Cursor Size:") {
+                    SizePickerView(
+                        selection: Binding(
+                            get: { CursorSettings.shared.size },
+                            set: { CursorSettings.shared.size = $0 }
+                        )
+                    )
+                }
+                
+                SettingRow(label: "Cursor Shape:") {
+                    ShapePickerView(
+                        selection: Binding(
+                            get: { CursorSettings.shared.shape },
+                            set: { CursorSettings.shared.shape = $0 }
+                        )
+                    )
+                }
+                
+                SettingRow(label: "Inner Glow Style:") {
+                    InnerGlowStylePickerView(
+                        selection: Binding(
+                            get: { CursorSettings.shared.innerGlowStyle },
+                            set: { CursorSettings.shared.innerGlowStyle = $0 }
+                        )
+                    )
+                }
+                
+                SettingRow(label: "Outer Line Width:") {
+                    HStack(spacing: 12) {
+                        CustomSlider(
+                            value: Binding(
+                                get: { Double(CursorSettings.shared.outerLineWidth) },
+                                set: { CursorSettings.shared.outerLineWidth = CGFloat($0) }
+                            ),
+                            in: 1...10,
+                            step: 0.1
+                        )
+                        
+                        Text(String(format: "%.1f", CursorSettings.shared.outerLineWidth))
+                            .frame(width: 50, alignment: .trailing)
+                            .foregroundColor(settings.textColor)
+                            .monospacedDigit()
                     }
-                )
-            }
-            
-            SettingRow(label: "Click Color:") {
-                ColorPickerView(
-                    selection: Binding(
-                        get: { CursorSettings.shared.clickColor },
-                        set: { CursorSettings.shared.clickColor = $0 }
-                    ),
-                    onSelectionChange: { color in
-                        CursorSettings.shared.clickColor = color
+                }
+                
+                SettingRow(label: "Transparency:") {
+                    HStack(spacing: 12) {
+                        CustomSlider(
+                            value: Binding(
+                                get: { Double(CursorSettings.shared.opacity) },
+                                set: { CursorSettings.shared.opacity = CGFloat($0) }
+                            ),
+                            in: 0.1...1.0,
+                            step: 0.01
+                        )
+                        
+                        Text("\(Int(CursorSettings.shared.opacity * 100))%")
+                            .frame(width: 50, alignment: .trailing)
+                            .foregroundColor(settings.textColor)
+                            .monospacedDigit()
                     }
-                )
-            }
-            
-            SettingRow(label: "Cursor Size:") {
-                SizePickerView(
-                    selection: Binding(
-                        get: { CursorSettings.shared.size },
-                        set: { CursorSettings.shared.size = $0 }
-                    )
-                )
-            }
-            
-            SettingRow(label: "Cursor Shape:") {
-                ShapePickerView(
-                    selection: Binding(
-                        get: { CursorSettings.shared.shape },
-                        set: { CursorSettings.shared.shape = $0 }
-                    )
-                )
-            }
-            
-            SettingRow(label: "Inner Glow Style:") {
-                InnerGlowStylePickerView(
-                    selection: Binding(
-                        get: { CursorSettings.shared.innerGlowStyle },
-                        set: { CursorSettings.shared.innerGlowStyle = $0 }
-                    )
-                )
-            }
-            
-            SettingRow(label: "Outer Line Width:") {
-                HStack(spacing: 12) {
-                    CustomSlider(
-                        value: Binding(
-                            get: { Double(CursorSettings.shared.outerLineWidth) },
-                            set: { CursorSettings.shared.outerLineWidth = CGFloat($0) }
-                        ),
-                        in: 1...10,
-                        step: 0.1
-                    )
-                    
-                    Text(String(format: "%.1f", CursorSettings.shared.outerLineWidth))
-                        .frame(width: 50, alignment: .trailing)
-                        .foregroundColor(settings.textColor)
-                        .monospacedDigit()
+                }
+                
+                SettingRow(label: "Shadow Brightness:") {
+                    HStack(spacing: 12) {
+                        CustomSlider(
+                            value: Binding(
+                                get: { Double(CursorSettings.shared.shadowBrightness) },
+                                set: { CursorSettings.shared.shadowBrightness = CGFloat($0) }
+                            ),
+                            in: 0...1.0,
+                            step: 0.01
+                        )
+                        
+                        Text("\(Int(CursorSettings.shared.shadowBrightness * 100))%")
+                            .frame(width: 50, alignment: .trailing)
+                            .foregroundColor(settings.textColor)
+                            .monospacedDigit()
+                    }
+                }
+                
+                SettingRow(label: "Hide When Inactive:") {
+                    Toggle("", isOn: Binding(
+                        get: { CursorSettings.shared.hideWhenInactive },
+                        set: { CursorSettings.shared.hideWhenInactive = $0 }
+                    ))
+                    .toggleStyle(.switch)
                 }
             }
-            
-            SettingRow(label: "Transparency:") {
-                HStack(spacing: 12) {
-                    CustomSlider(
-                        value: Binding(
-                            get: { Double(CursorSettings.shared.opacity) },
-                            set: { CursorSettings.shared.opacity = CGFloat($0) }
-                        ),
-                        in: 0.1...1.0,
-                        step: 0.01
-                    )
-                    
-                    Text("\(Int(CursorSettings.shared.opacity * 100))%")
-                        .frame(width: 50, alignment: .trailing)
-                        .foregroundColor(settings.textColor)
-                        .monospacedDigit()
-                }
-            }
-            
-            SettingRow(label: "Shadow Brightness:") {
-                HStack(spacing: 12) {
-                    CustomSlider(
-                        value: Binding(
-                            get: { Double(CursorSettings.shared.shadowBrightness) },
-                            set: { CursorSettings.shared.shadowBrightness = CGFloat($0) }
-                        ),
-                        in: 0...1.0,
-                        step: 0.01
-                    )
-                    
-                    Text("\(Int(CursorSettings.shared.shadowBrightness * 100))%")
-                        .frame(width: 50, alignment: .trailing)
-                        .foregroundColor(settings.textColor)
-                        .monospacedDigit()
-                }
-            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.black.opacity(0.4))
+            )
         }
     }
-    
-    // MARK: - Pencil Settings Section
-    private var pencilSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            sectionHeader("Pencil Settings")
-            
-            SettingRow(label: "Pencil Color:") {
-                ColorPickerView(
-                    selection: Binding(
-                        get: { CursorSettings.shared.pencilColor },
-                        set: { CursorSettings.shared.pencilColor = $0 }
-                    ),
-                    onSelectionChange: { color in
-                        CursorSettings.shared.pencilColor = color
-                    }
-                )
-            }
-            
-            SettingRow(label: "Line Thickness:") {
-                HStack(spacing: 12) {
-                    CustomSlider(
-                        value: Binding(
-                            get: { Double(CursorSettings.shared.pencilLineWidth) },
-                            set: { CursorSettings.shared.pencilLineWidth = CGFloat($0) }
-                        ),
-                        in: 1...20,
-                        step: 0.1
-                    )
-                    
-                    Text(String(format: "%.1f", CursorSettings.shared.pencilLineWidth))
-                        .frame(width: 50, alignment: .trailing)
-                        .foregroundColor(settings.textColor)
-                        .monospacedDigit()
-                }
-            }
-            
-            SettingRow(label: "Pencil Transparency:") {
-                HStack(spacing: 12) {
-                    CustomSlider(
-                        value: Binding(
-                            get: { Double(CursorSettings.shared.pencilOpacity) },
-                            set: { CursorSettings.shared.pencilOpacity = CGFloat($0) }
-                        ),
-                        in: 0.1...1.0,
-                        step: 0.01
-                    )
-                    
-                    Text("\(Int(CursorSettings.shared.pencilOpacity * 100))%")
-                        .frame(width: 50, alignment: .trailing)
-                        .foregroundColor(settings.textColor)
-                        .monospacedDigit()
-                }
-            }
-        }
-    }
-    
     
     // MARK: - Tip Section
     private var tipSection: some View {
@@ -487,7 +441,7 @@ struct VisualEffectView: NSViewRepresentable {
         // Добавляем темный фон для большей непрозрачности
         if isDark {
             view.wantsLayer = true
-            view.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+            view.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.9).cgColor
         }
         
         return view
@@ -496,7 +450,7 @@ struct VisualEffectView: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         if isDark {
-            nsView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+            nsView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.9).cgColor
         }
     }
 }

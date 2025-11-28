@@ -46,6 +46,10 @@ final class CursorHighlighter {
     
     // Оригинальный размер окна для восстановления после режима карандаша
     private var originalWindowSize: CGFloat = 0
+    
+    // Таймер для отслеживания неактивности курсора
+    private var inactivityTimer: Timer?
+    private var isFadingOut = false
 
     private(set) var isRunning: Bool = false
     
@@ -88,6 +92,12 @@ final class CursorHighlighter {
             self,
             selector: #selector(shapeChanged),
             name: .cursorShapeChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hideWhenInactiveChanged),
+            name: .hideWhenInactiveChanged,
             object: nil
         )
     }
@@ -212,10 +222,15 @@ final class CursorHighlighter {
         drawingWindow?.stopDrawing()
         pencilSettingsWindow?.orderOut(nil)
         
+        // Останавливаем таймер неактивности
+        inactivityTimer?.invalidate()
+        inactivityTimer = nil
+        
         // Сброс состояния
         isFrozen = false
         frozenPosition = nil
         isMiddleButtonPressed = false
+        isFadingOut = false
     }
 
     // Создаём прозрачное окно поверх всех экранов/спейсов
@@ -264,12 +279,18 @@ final class CursorHighlighter {
 
         let view = HighlightView(frame: NSRect(x: 0, y: 0, width: diameter, height: diameter))
         view.wantsLayer = true
+        view.layer?.opacity = Float(CursorSettings.shared.opacity)
         view.baseColor = CursorSettings.shared.color.color
         view.clickColor = CursorSettings.shared.clickColor.color
         view.opacity = CursorSettings.shared.opacity
 
         panel.contentView = view
         panel.orderFrontRegardless()
+        
+        // Убеждаемся, что окно поддерживает анимацию
+        panel.isOpaque = false
+        panel.hasShadow = false
+        panel.backgroundColor = .clear
 
         self.window = panel
         self.highlightView = view
@@ -286,6 +307,9 @@ final class CursorHighlighter {
             // Показываем курсор при движении мыши, если он был скрыт для ввода текста
             self?.updatePositionToMouse()
         }
+        
+        // Запускаем таймер неактивности при старте
+        resetInactivityTimer()
 
         // Левая кнопка мыши: mouseDown (для визуального эффекта или открытия меню с Command)
         clickDownMonitor = NSEvent.addGlobalMonitorForEvents(
@@ -310,6 +334,11 @@ final class CursorHighlighter {
                 // Обычный клик - показываем визуальный эффект
                 self.highlightView?.beginClick()
             }
+            // Показываем курсор при клике
+            if self.isFadingOut {
+                self.showCursorAnimated()
+            }
+            self.resetInactivityTimer()
         }
 
         // Левая кнопка мыши: mouseUp (для визуального эффекта)
@@ -317,6 +346,8 @@ final class CursorHighlighter {
             matching: [.leftMouseUp]
         ) { [weak self] _ in
             self?.highlightView?.endClick()
+            // Сбрасываем таймер при отпускании кнопки
+            self?.resetInactivityTimer()
         }
         
         // Отслеживание нажатия колесика для комбинации с правой кнопкой и визуального эффекта
@@ -331,6 +362,11 @@ final class CursorHighlighter {
                 if pressedButtons & 0x2 == 0 { // Правая кнопка не зажата (бит 0x2)
                     self.highlightView?.beginClick()
                 }
+                // Показываем курсор при клике
+                if self.isFadingOut {
+                    self.showCursorAnimated()
+                }
+                self.resetInactivityTimer()
             }
         }
         
@@ -357,6 +393,11 @@ final class CursorHighlighter {
             // Всегда показываем визуальный эффект при нажатии правой кнопки
             // (работает как отдельно, так и в комбинации с колесиком)
             self.highlightView?.beginClick()
+            // Показываем курсор при клике
+            if self.isFadingOut {
+                self.showCursorAnimated()
+            }
+            self.resetInactivityTimer()
         }
         
         // Правая кнопка мыши: mouseUp (для визуального эффекта)
@@ -379,6 +420,9 @@ final class CursorHighlighter {
             // Проверяем, активен ли текстовый ввод
             if self.isTextInputActive() && !self.isHiddenForTextInput {
                 self.hideCursorForTextInput()
+            } else {
+                // Сбрасываем таймер при нажатии клавиш (если не в текстовом поле)
+                self.resetInactivityTimer()
             }
         }
         
@@ -739,6 +783,14 @@ final class CursorHighlighter {
     private func updatePositionToMouse() {
         guard let window = window, !isHiddenForTextInput else { return }
 
+        // Показываем курсор при движении мыши
+        if isFadingOut {
+            showCursorAnimated()
+        }
+        
+        // Сбрасываем таймер неактивности
+        resetInactivityTimer()
+
         // Глобальные координаты курсора (одна система для всех мониторов)
         let location = NSEvent.mouseLocation
         
@@ -772,6 +824,86 @@ final class CursorHighlighter {
         }
 
         window.orderFrontRegardless()
+    }
+    
+    // Сброс таймера неактивности
+    private func resetInactivityTimer() {
+        inactivityTimer?.invalidate()
+        inactivityTimer = nil
+        
+        // Запускаем таймер только если включена настройка скрытия при неактивности
+        if CursorSettings.shared.hideWhenInactive {
+            inactivityTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+                self?.hideCursorAnimated()
+            }
+        }
+    }
+    
+    // Плавное скрытие курсора
+    private func hideCursorAnimated() {
+        guard let window = window, let view = highlightView, CursorSettings.shared.hideWhenInactive else { return }
+        guard !isHiddenForTextInput, !isFrozen else { return }
+        
+        isFadingOut = true
+        
+        // Анимируем через layer для более плавного перехода
+        let fadeOutAnimation = CABasicAnimation(keyPath: "opacity")
+        fadeOutAnimation.fromValue = view.layer?.opacity ?? 1.0
+        fadeOutAnimation.toValue = 0.0
+        fadeOutAnimation.duration = 0.2
+        fadeOutAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        fadeOutAnimation.fillMode = .forwards
+        fadeOutAnimation.isRemovedOnCompletion = false
+        
+        // Также анимируем alphaValue окна
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.5
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().alphaValue = 0.0
+            view.layer?.add(fadeOutAnimation, forKey: "fadeOut")
+        }, completionHandler: {
+            view.layer?.opacity = 0.0
+        })
+    }
+    
+    // Плавное показ курсора
+    private func showCursorAnimated() {
+        guard let window = window, let view = highlightView else { return }
+        
+        isFadingOut = false
+        
+        // Анимируем через layer для более плавного перехода
+        let fadeInAnimation = CABasicAnimation(keyPath: "opacity")
+        fadeInAnimation.fromValue = view.layer?.opacity ?? 0.0
+        fadeInAnimation.toValue = Float(CursorSettings.shared.opacity)
+        fadeInAnimation.duration = 0.3
+        fadeInAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        fadeInAnimation.fillMode = .forwards
+        fadeInAnimation.isRemovedOnCompletion = false
+        
+        // Также анимируем alphaValue окна
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.3
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().alphaValue = 1.0
+            view.layer?.add(fadeInAnimation, forKey: "fadeIn")
+        }, completionHandler: {
+            view.layer?.opacity = Float(CursorSettings.shared.opacity)
+        })
+    }
+    
+    @objc private func hideWhenInactiveChanged() {
+        if !CursorSettings.shared.hideWhenInactive {
+            // Если настройка выключена, показываем курсор
+            inactivityTimer?.invalidate()
+            inactivityTimer = nil
+            if isFadingOut {
+                showCursorAnimated()
+            }
+        } else {
+            // Если настройка включена, запускаем таймер
+            resetInactivityTimer()
+        }
     }
     
     private func showPencilSettingsPanel() {
