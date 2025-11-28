@@ -20,7 +20,7 @@ class SettingsWindow: NSWindowController {
     private func createWindow() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 800),
-            styleMask: [.titled, .closable],
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -29,6 +29,9 @@ class SettingsWindow: NSWindowController {
         window.isReleasedWhenClosed = false
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        
+        // Устанавливаем минимальный размер окна
+        window.minSize = NSSize(width: 500, height: 600)
         
         // Создаем SwiftUI view
         let settingsView = SettingsView()

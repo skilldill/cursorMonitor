@@ -1,4 +1,5 @@
 import SwiftUI
+import Cocoa
 
 struct SettingsView: View {
     @ObservedObject private var settings = CursorSettingsObservable()
@@ -26,11 +27,6 @@ struct SettingsView: View {
                     .padding(.top, 30)
                     .padding(.horizontal, 20)
                 
-                // Menu Settings Section
-                menuSettingsSection
-                    .padding(.top, 30)
-                    .padding(.horizontal, 20)
-                
                 // Tip
                 tipSection
                     .padding(.top, 20)
@@ -44,9 +40,10 @@ struct SettingsView: View {
                     .padding(.horizontal, 20)
             }
         }
-        .frame(width: 600, height: 800)
+        .frame(minWidth: 500, minHeight: 600)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            VisualEffectView(material: settings.isDark ? .hudWindow : .light)
+            VisualEffectView(material: .hudWindow, isDark: true)
         )
         .onAppear {
             setupNotifications()
@@ -143,8 +140,8 @@ struct SettingsView: View {
             }
             
             SettingRow(label: "Outer Line Width:") {
-                HStack {
-                    Slider(
+                HStack(spacing: 12) {
+                    CustomSlider(
                         value: Binding(
                             get: { Double(CursorSettings.shared.outerLineWidth) },
                             set: { CursorSettings.shared.outerLineWidth = CGFloat($0) }
@@ -152,17 +149,17 @@ struct SettingsView: View {
                         in: 1...10,
                         step: 0.1
                     )
-                    .frame(width: 250)
                     
                     Text(String(format: "%.1f", CursorSettings.shared.outerLineWidth))
-                        .frame(width: 60, alignment: .leading)
+                        .frame(width: 50, alignment: .trailing)
                         .foregroundColor(settings.textColor)
+                        .monospacedDigit()
                 }
             }
             
             SettingRow(label: "Transparency:") {
-                HStack {
-                    Slider(
+                HStack(spacing: 12) {
+                    CustomSlider(
                         value: Binding(
                             get: { Double(CursorSettings.shared.opacity) },
                             set: { CursorSettings.shared.opacity = CGFloat($0) }
@@ -170,17 +167,17 @@ struct SettingsView: View {
                         in: 0.1...1.0,
                         step: 0.01
                     )
-                    .frame(width: 250)
                     
                     Text("\(Int(CursorSettings.shared.opacity * 100))%")
-                        .frame(width: 60, alignment: .leading)
+                        .frame(width: 50, alignment: .trailing)
                         .foregroundColor(settings.textColor)
+                        .monospacedDigit()
                 }
             }
             
             SettingRow(label: "Shadow Brightness:") {
-                HStack {
-                    Slider(
+                HStack(spacing: 12) {
+                    CustomSlider(
                         value: Binding(
                             get: { Double(CursorSettings.shared.shadowBrightness) },
                             set: { CursorSettings.shared.shadowBrightness = CGFloat($0) }
@@ -188,11 +185,11 @@ struct SettingsView: View {
                         in: 0...1.0,
                         step: 0.01
                     )
-                    .frame(width: 250)
                     
                     Text("\(Int(CursorSettings.shared.shadowBrightness * 100))%")
-                        .frame(width: 60, alignment: .leading)
+                        .frame(width: 50, alignment: .trailing)
                         .foregroundColor(settings.textColor)
+                        .monospacedDigit()
                 }
             }
         }
@@ -216,8 +213,8 @@ struct SettingsView: View {
             }
             
             SettingRow(label: "Line Thickness:") {
-                HStack {
-                    Slider(
+                HStack(spacing: 12) {
+                    CustomSlider(
                         value: Binding(
                             get: { Double(CursorSettings.shared.pencilLineWidth) },
                             set: { CursorSettings.shared.pencilLineWidth = CGFloat($0) }
@@ -225,17 +222,17 @@ struct SettingsView: View {
                         in: 1...20,
                         step: 0.1
                     )
-                    .frame(width: 250)
                     
                     Text(String(format: "%.1f", CursorSettings.shared.pencilLineWidth))
-                        .frame(width: 60, alignment: .leading)
+                        .frame(width: 50, alignment: .trailing)
                         .foregroundColor(settings.textColor)
+                        .monospacedDigit()
                 }
             }
             
             SettingRow(label: "Pencil Transparency:") {
-                HStack {
-                    Slider(
+                HStack(spacing: 12) {
+                    CustomSlider(
                         value: Binding(
                             get: { Double(CursorSettings.shared.pencilOpacity) },
                             set: { CursorSettings.shared.pencilOpacity = CGFloat($0) }
@@ -243,35 +240,16 @@ struct SettingsView: View {
                         in: 0.1...1.0,
                         step: 0.01
                     )
-                    .frame(width: 250)
                     
                     Text("\(Int(CursorSettings.shared.pencilOpacity * 100))%")
-                        .frame(width: 60, alignment: .leading)
+                        .frame(width: 50, alignment: .trailing)
                         .foregroundColor(settings.textColor)
+                        .monospacedDigit()
                 }
             }
         }
     }
     
-    // MARK: - Menu Settings Section
-    private var menuSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            sectionHeader("Menu Settings")
-            
-            SettingRow(label: "Menu Theme:") {
-                HStack {
-                    Toggle("", isOn: Binding(
-                        get: { CursorSettings.shared.menuTheme == .light },
-                        set: { CursorSettings.shared.menuTheme = $0 ? .light : .dark }
-                    ))
-                    .toggleStyle(.switch)
-                    
-                    Text(settings.isDark ? "Dark" : "Light")
-                        .foregroundColor(settings.textColor)
-                }
-            }
-        }
-    }
     
     // MARK: - Tip Section
     private var tipSection: some View {
@@ -498,17 +476,68 @@ struct InnerGlowStylePickerView: View {
 // MARK: - Visual Effect View
 struct VisualEffectView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
+    let isDark: Bool
     
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = material
         view.blendingMode = .behindWindow
         view.state = .active
+        
+        // Добавляем темный фон для большей непрозрачности
+        if isDark {
+            view.wantsLayer = true
+            view.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+        }
+        
         return view
     }
     
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
+        if isDark {
+            nsView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+        }
+    }
+}
+
+// MARK: - Custom Slider (Solid Line)
+struct CustomSlider: NSViewRepresentable {
+    @Binding var value: Double
+    let `in`: ClosedRange<Double>
+    let step: Double
+    
+    func makeNSView(context: Context) -> NSSlider {
+        let slider = NSSlider()
+        slider.minValue = `in`.lowerBound
+        slider.maxValue = `in`.upperBound
+        slider.doubleValue = value
+        slider.allowsTickMarkValuesOnly = false
+        slider.numberOfTickMarks = 0  // Убираем tick marks
+        slider.target = context.coordinator
+        slider.action = #selector(Coordinator.valueChanged(_:))
+        return slider
+    }
+    
+    func updateNSView(_ nsView: NSSlider, context: Context) {
+        nsView.doubleValue = value
+        context.coordinator.value = $value
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(value: $value)
+    }
+    
+    class Coordinator: NSObject {
+        var value: Binding<Double>
+        
+        init(value: Binding<Double>) {
+            self.value = value
+        }
+        
+        @objc func valueChanged(_ sender: NSSlider) {
+            value.wrappedValue = sender.doubleValue
+        }
     }
 }
 
@@ -561,7 +590,7 @@ class CursorSettingsObservable: ObservableObject {
     }
     
     var textColor: Color {
-        isDark ? .primary : Color(white: 0.1)
+        .primary
     }
     
     var previewSize: CGFloat {
