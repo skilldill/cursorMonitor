@@ -137,6 +137,7 @@ class CursorSettings {
     private let outerLineWidthKey = "outerLineWidth"
     private let shadowColorKey = "cursorShadowColor"
     private let shadowBrightnessKey = "cursorShadowBrightness"
+    private let hideWhenInactiveKey = "hideWhenInactive"
     
     var menuTheme: MenuTheme {
         get {
@@ -359,6 +360,20 @@ class CursorSettings {
         }
     }
     
+    var hideWhenInactive: Bool {
+        get {
+            // Проверяем, установлено ли значение (по умолчанию false)
+            if UserDefaults.standard.object(forKey: hideWhenInactiveKey) != nil {
+                return UserDefaults.standard.bool(forKey: hideWhenInactiveKey)
+            }
+            return false // По умолчанию выключено
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: hideWhenInactiveKey)
+            NotificationCenter.default.post(name: .hideWhenInactiveChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -378,5 +393,6 @@ extension Notification.Name {
     static let outerLineWidthChanged = Notification.Name("outerLineWidthChanged")
     static let cursorShadowColorChanged = Notification.Name("cursorShadowColorChanged")
     static let cursorShadowBrightnessChanged = Notification.Name("cursorShadowBrightnessChanged")
+    static let hideWhenInactiveChanged = Notification.Name("hideWhenInactiveChanged")
 }
 
