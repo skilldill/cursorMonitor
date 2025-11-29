@@ -33,6 +33,9 @@ class NotesViewWindow: NSWindowController {
         window.center()
         window.isReleasedWhenClosed = false
         
+        // Предотвращаем сворачивание в боковую панель Stage Manager
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        
         let contentView = window.contentView!
         
         // Таблица заметок

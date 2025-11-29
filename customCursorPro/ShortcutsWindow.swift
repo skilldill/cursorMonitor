@@ -120,6 +120,9 @@ class ShortcutsWindow: NSWindowController {
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 500, height: 300)
         
+        // Предотвращаем сворачивание в боковую панель Stage Manager
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        
         // Создаем SwiftUI view
         let shortcutsView = ShortcutsView(onClose: { [weak self] in
             self?.window?.close()

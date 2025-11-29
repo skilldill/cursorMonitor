@@ -30,6 +30,9 @@ class SettingsWindow: NSWindowController {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         
+        // Предотвращаем сворачивание в боковую панель Stage Manager
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        
         // Устанавливаем минимальный размер окна
         window.minSize = NSSize(width: 500, height: 600)
         
