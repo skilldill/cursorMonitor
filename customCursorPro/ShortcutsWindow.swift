@@ -8,7 +8,7 @@ struct ShortcutsView: View {
         VStack(spacing: 0) {
             // Заголовок
             HStack {
-                Text("Keyboard Shortcuts")
+                Text(L("shortcuts.title"))
                     .font(.system(size: 24, weight: .bold))
                 Spacer()
                 Button(action: { onClose?() }) {
@@ -27,32 +27,32 @@ struct ShortcutsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ShortcutRow(
-                        title: "Open Menu",
-                        description: "Open the cursor menu",
+                        title: L("shortcuts.openMenu"),
+                        description: L("shortcuts.openMenuDesc"),
                         shortcut: "⌘ + Left Click"
                     )
                     
                     ShortcutRow(
-                        title: "Close Menu",
-                        description: "Close the cursor menu",
+                        title: L("shortcuts.closeMenu"),
+                        description: L("shortcuts.closeMenuDesc"),
                         shortcut: "⌘ + Left Click"
                     )
                     
                     ShortcutRow(
-                        title: "Move Menu",
-                        description: "Drag the menu to move it",
+                        title: L("shortcuts.moveMenu"),
+                        description: L("shortcuts.moveMenuDesc"),
                         shortcut: "Drag outside buttons"
                     )
                     
                     ShortcutRow(
-                        title: "Start Pencil Mode",
-                        description: "Activate drawing mode",
+                        title: L("shortcuts.startPencil"),
+                        description: L("shortcuts.startPencilDesc"),
                         shortcut: "Click pencil button"
                     )
                     
                     ShortcutRow(
-                        title: "Stop Pencil Mode",
-                        description: "Deactivate drawing mode",
+                        title: L("shortcuts.stopPencil"),
+                        description: L("shortcuts.stopPencilDesc"),
                         shortcut: "⌘ + Left Click"
                     )
                 }
@@ -115,7 +115,7 @@ class ShortcutsWindow: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Keyboard Shortcuts"
+        window.title = L("shortcuts.title")
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 500, height: 300)

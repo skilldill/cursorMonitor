@@ -31,6 +31,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: .settingsWindowWillClose,
             object: nil
         )
+        
+        // Подписываемся на изменения языка
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageChanged),
+            name: .languageChanged,
+            object: nil
+        )
+    }
+    
+    @objc private func languageChanged() {
+        // Обновляем меню при изменении языка
+        setupStatusItem()
     }
     
     @objc private func settingsWindowWillOpen() {
@@ -68,7 +81,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         let toggleItem = NSMenuItem(
-            title: "Toggle Highlight",
+            title: L("menu.toggleHighlight"),
             action: #selector(toggleHighlight),
             keyEquivalent: "t"
         )
@@ -78,7 +91,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         
         let shortcutsItem = NSMenuItem(
-            title: "Keyboard Shortcuts...",
+            title: L("menu.keyboardShortcuts"),
             action: #selector(showShortcuts),
             keyEquivalent: ""
         )
@@ -86,7 +99,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(shortcutsItem)
         
         let settingsItem = NSMenuItem(
-            title: "Настройки...",
+            title: L("menu.settings"),
             action: #selector(showSettings),
             keyEquivalent: ","
         )
@@ -96,7 +109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(
-            title: "Quit",
+            title: L("menu.quit"),
             action: #selector(quit),
             keyEquivalent: "q"
         )

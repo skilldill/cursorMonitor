@@ -62,6 +62,30 @@ class PencilSettingsPanel: NSView {
             name: .pencilGlowEnabledChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageChanged),
+            name: .languageChanged,
+            object: nil
+        )
+    }
+    
+    @objc private func languageChanged() {
+        // Обновляем тексты при изменении языка
+        titleLabel?.stringValue = L("pencil.title")
+        // Находим и обновляем все текстовые метки
+        for subview in contentContainer?.subviews ?? [] {
+            if let label = subview as? NSTextField {
+                if label.stringValue.contains("Цвет:") || label.stringValue.contains("Color:") {
+                    label.stringValue = L("pencil.color")
+                } else if label.stringValue.contains("Толщина:") || label.stringValue.contains("Thickness:") {
+                    label.stringValue = L("pencil.thickness")
+                } else if label.stringValue.contains("Прозрачность:") || label.stringValue.contains("Opacity:") {
+                    label.stringValue = L("pencil.opacity")
+                }
+            }
+        }
+        glowCheckbox?.title = L("pencil.glowLines")
     }
     
     @objc private func pencilColorChanged() {
@@ -120,7 +144,7 @@ class PencilSettingsPanel: NSView {
         self.collapseButton = collapseButton
         
         // Заголовок
-        let titleLabel = NSTextField(labelWithString: "Настройки карандаша")
+        let titleLabel = NSTextField(labelWithString: L("pencil.title"))
         titleLabel.font = NSFont.systemFont(ofSize: 14, weight: .semibold)
         titleLabel.textColor = .labelColor
         titleLabel.frame = NSRect(x: padding + 25, y: 11, width: frame.width - padding * 2 - 25, height: 18)
@@ -139,7 +163,7 @@ class PencilSettingsPanel: NSView {
         var currentY = contentContainer.frame.height - padding
         
         // Цвет
-        let colorLabel = NSTextField(labelWithString: "Цвет:")
+        let colorLabel = NSTextField(labelWithString: L("pencil.color"))
         colorLabel.font = NSFont.systemFont(ofSize: 12)
         colorLabel.textColor = .secondaryLabelColor
         colorLabel.frame = NSRect(x: padding, y: currentY - 16, width: 60, height: 16)
@@ -188,7 +212,7 @@ class PencilSettingsPanel: NSView {
         currentY -= colorButtonsHeight + spacing
         
         // Толщина
-        let thicknessLabel = NSTextField(labelWithString: "Толщина:")
+        let thicknessLabel = NSTextField(labelWithString: L("pencil.thickness"))
         thicknessLabel.font = NSFont.systemFont(ofSize: 12)
         thicknessLabel.textColor = .secondaryLabelColor
         thicknessLabel.frame = NSRect(x: padding, y: currentY - 16, width: 80, height: 16)
@@ -218,7 +242,7 @@ class PencilSettingsPanel: NSView {
         currentY -= 30
         
         // Прозрачность
-        let opacityLabel = NSTextField(labelWithString: "Прозрачность:")
+        let opacityLabel = NSTextField(labelWithString: L("pencil.opacity"))
         opacityLabel.font = NSFont.systemFont(ofSize: 12)
         opacityLabel.textColor = .secondaryLabelColor
         opacityLabel.frame = NSRect(x: padding, y: currentY - 16, width: 100, height: 16)
@@ -248,7 +272,7 @@ class PencilSettingsPanel: NSView {
         currentY -= 30
         
         // Светящиеся линии
-        let glowCheckbox = NSButton(checkboxWithTitle: "Светящиеся линии", target: self, action: #selector(glowCheckboxChanged(_:)))
+        let glowCheckbox = NSButton(checkboxWithTitle: L("pencil.glowLines"), target: self, action: #selector(glowCheckboxChanged(_:)))
         glowCheckbox.state = CursorSettings.shared.pencilGlowEnabled ? .on : .off
         glowCheckbox.font = NSFont.systemFont(ofSize: 12)
         glowCheckbox.frame = NSRect(x: padding, y: currentY - 20, width: frame.width - padding * 2, height: 20)

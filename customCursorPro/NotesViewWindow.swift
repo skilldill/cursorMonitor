@@ -29,7 +29,7 @@ class NotesViewWindow: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Мои заметки"
+        window.title = L("notes.title")
         window.center()
         window.isReleasedWhenClosed = false
         
@@ -64,14 +64,32 @@ class NotesViewWindow: NSWindowController {
         
         // Кнопка "Очистить все"
         clearButton = NSButton(frame: NSRect(x: 20, y: 20, width: 120, height: 32))
-        clearButton.title = "Очистить все"
+        clearButton.title = L("notes.clearAll")
         clearButton.bezelStyle = .rounded
         clearButton.target = self
         clearButton.action = #selector(clearAllNotes)
         contentView.addSubview(clearButton)
         
+        // Подписываемся на изменения языка
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageChanged),
+            name: .languageChanged,
+            object: nil
+        )
+        
         self.window = window
         loadNotes()
+    }
+    
+    @objc private func languageChanged() {
+        // Обновляем тексты при изменении языка
+        window?.title = L("notes.title")
+        clearButton?.title = L("notes.clearAll")
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     func showWindow() {
@@ -87,10 +105,10 @@ class NotesViewWindow: NSWindowController {
     
     @objc private func clearAllNotes() {
         let alert = NSAlert()
-        alert.messageText = "Очистить все заметки?"
-        alert.informativeText = "Это действие нельзя отменить."
-        alert.addButton(withTitle: "Очистить")
-        alert.addButton(withTitle: "Отмена")
+        alert.messageText = L("notes.clearAllConfirm")
+        alert.informativeText = L("notes.clearAllWarning")
+        alert.addButton(withTitle: L("notes.clear"))
+        alert.addButton(withTitle: L("note.cancel"))
         alert.alertStyle = .warning
         
         if alert.runModal() == .alertFirstButtonReturn {

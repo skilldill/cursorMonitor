@@ -32,12 +32,20 @@ class NoteInputWindow: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Создать заметку"
+        window.title = L("note.create")
         window.center()
         window.isReleasedWhenClosed = false
         
         // Предотвращаем сворачивание в боковую панель Stage Manager
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        
+        // Подписываемся на изменения языка
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageChanged),
+            name: .languageChanged,
+            object: nil
+        )
         
         let contentView = window.contentView!
         
@@ -61,7 +69,7 @@ class NoteInputWindow: NSWindowController {
         
         // Кнопка "Сохранить"
         saveButton = NSButton(frame: NSRect(x: 350, y: 20, width: 120, height: 32))
-        saveButton.title = "Сохранить"
+        saveButton.title = L("note.save")
         saveButton.bezelStyle = .rounded
         saveButton.target = self
         saveButton.action = #selector(saveButtonClicked)
@@ -70,7 +78,7 @@ class NoteInputWindow: NSWindowController {
         
         // Кнопка "Отмена"
         cancelButton = NSButton(frame: NSRect(x: 220, y: 20, width: 120, height: 32))
-        cancelButton.title = "Отмена"
+        cancelButton.title = L("note.cancel")
         cancelButton.bezelStyle = .rounded
         cancelButton.target = self
         cancelButton.action = #selector(cancelButtonClicked)
@@ -97,14 +105,14 @@ class NoteInputWindow: NSWindowController {
     func showWindowForEditing(note: Note) {
         editingNoteId = note.id
         textView.string = note.text
-        window?.title = "Редактировать заметку"
+        window?.title = L("note.edit")
         showWindow()
     }
     
     func showWindowForCreating() {
         editingNoteId = nil
         textView.string = ""
-        window?.title = "Создать заметку"
+        window?.title = L("note.create")
         showWindow()
     }
     
@@ -125,6 +133,21 @@ class NoteInputWindow: NSWindowController {
     @objc private func cancelButtonClicked() {
         window?.close()
     }
+    
+    @objc private func languageChanged() {
+        // Обновляем тексты при изменении языка
+        saveButton?.title = L("note.save")
+        cancelButton?.title = L("note.cancel")
+        if editingNoteId != nil {
+            window?.title = L("note.edit")
+        } else {
+            window?.title = L("note.create")
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 }
 
 extension NoteInputWindow: NSWindowDelegate {
@@ -132,7 +155,7 @@ extension NoteInputWindow: NSWindowDelegate {
         // Очищаем поле при закрытии
         textView.string = ""
         editingNoteId = nil
-        window?.title = "Создать заметку"
+        window?.title = L("note.create")
     }
 }
 

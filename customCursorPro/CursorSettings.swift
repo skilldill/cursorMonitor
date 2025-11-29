@@ -14,16 +14,16 @@ enum CursorColor: String, CaseIterable {
     
     var displayName: String {
         switch self {
-        case .indigo: return "Индиго"
-        case .blue: return "Синий"
-        case .purple: return "Фиолетовый"
-        case .pink: return "Розовый"
-        case .red: return "Красный"
-        case .orange: return "Оранжевый"
-        case .yellow: return "Жёлтый"
-        case .green: return "Зелёный"
-        case .cyan: return "Голубой"
-        case .glowing: return "Светящийся"
+        case .indigo: return L("color.indigo")
+        case .blue: return L("color.blue")
+        case .purple: return L("color.purple")
+        case .pink: return L("color.pink")
+        case .red: return L("color.red")
+        case .orange: return L("color.orange")
+        case .yellow: return L("color.yellow")
+        case .green: return L("color.green")
+        case .cyan: return L("color.cyan")
+        case .glowing: return L("color.glowing")
         }
     }
     
@@ -86,8 +86,8 @@ enum MenuTheme: String, CaseIterable {
     
     var displayName: String {
         switch self {
-        case .dark: return "Тёмная"
-        case .light: return "Светлая"
+        case .dark: return L("theme.dark")
+        case .light: return L("theme.light")
         }
     }
 }
@@ -102,12 +102,12 @@ enum CursorShape: String, CaseIterable {
     
     var displayName: String {
         switch self {
-        case .squircle: return "Скругленный квадрат"
-        case .circle: return "Круг"
-        case .hexagon: return "Шестиугольник"
-        case .triangle: return "Треугольник"
-        case .rhombus: return "Ромб"
-        case .pentagon: return "Пятиугольник"
+        case .squircle: return L("shape.squircle")
+        case .circle: return L("shape.circle")
+        case .hexagon: return L("shape.hexagon")
+        case .triangle: return L("shape.triangle")
+        case .rhombus: return L("shape.rhombus")
+        case .pentagon: return L("shape.pentagon")
         }
     }
 }
@@ -119,9 +119,9 @@ enum InnerGlowStyle: String, CaseIterable {
     
     var displayName: String {
         switch self {
-        case .solid: return "Сплошная"
-        case .segmented: return "Сегментированная"
-        case .thinSegmented: return "Тонкая сегментированная"
+        case .solid: return L("glow.solid")
+        case .segmented: return L("glow.segmented")
+        case .thinSegmented: return L("glow.thinSegmented")
         }
     }
 }

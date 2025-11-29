@@ -24,7 +24,7 @@ class SettingsWindow: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Cursor Pro Settings"
+        window.title = L("settings.title")
         window.center()
         window.isReleasedWhenClosed = false
         window.titlebarAppearsTransparent = true

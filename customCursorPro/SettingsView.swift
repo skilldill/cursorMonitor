@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var previewOpacity: CGFloat = CursorSettings.shared.opacity
     @State private var previewSize: CGFloat = CursorSettings.shared.size.diameter
     @State private var notificationObservers: [NSObjectProtocol] = []
+    @State private var currentLanguage: AppLanguage = Localization.shared.currentLanguage
     
     // Вычисляет размер превью с учетом тени (если включен режим свечения)
     private func calculatePreviewSize() -> CGFloat {
@@ -39,12 +40,11 @@ struct SettingsView: View {
                 trailingSection
                     .padding(.top, 30)
                     .padding(.horizontal, 20)
-
-                // Tip
-                tipSection
-                    .padding(.top, 20)
+                
+                // Language Section
+                languageSection
+                    .padding(.top, 30)
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
                 
                 // Apply Button
                 applyButton
@@ -56,18 +56,23 @@ struct SettingsView: View {
         .frame(minWidth: 500, minHeight: 600)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(red: 0.15, green: 0.18, blue: 0.22))
+        .id(currentLanguage) // Пересоздаем весь view при изменении языка
         .onAppear {
             setupNotifications()
+            currentLanguage = Localization.shared.currentLanguage
         }
         .onDisappear {
             removeNotifications()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            currentLanguage = Localization.shared.currentLanguage
         }
     }
     
     // MARK: - Preview Section
     private var previewSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Preview")
+            Text(L("settings.preview"))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(settings.textColor)
             
@@ -97,10 +102,10 @@ struct SettingsView: View {
     // MARK: - Cursor Settings Section
     private var cursorSettingsSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            sectionHeader("Cursor Settings")
+            sectionHeader(L("settings.cursorSettings"))
             
             VStack(spacing: 16) {
-                SettingRow(label: "Cursor Color:") {
+                SettingRow(label: L("settings.cursorColor")) {
                     ColorPickerView(
                         selection: Binding(
                             get: { CursorSettings.shared.color },
@@ -112,7 +117,7 @@ struct SettingsView: View {
                     )
                 }
                 
-                SettingRow(label: "Click Color:") {
+                SettingRow(label: L("settings.clickColor")) {
                     ColorPickerView(
                         selection: Binding(
                             get: { CursorSettings.shared.clickColor },
@@ -124,7 +129,7 @@ struct SettingsView: View {
                     )
                 }
                 
-                SettingRow(label: "Cursor Size:") {
+                SettingRow(label: L("settings.cursorSize")) {
                     SizePickerView(
                         selection: Binding(
                             get: { CursorSettings.shared.size },
@@ -133,7 +138,7 @@ struct SettingsView: View {
                     )
                 }
                 
-                SettingRow(label: "Cursor Shape:") {
+                SettingRow(label: L("settings.cursorShape")) {
                     ShapePickerView(
                         selection: Binding(
                             get: { CursorSettings.shared.shape },
@@ -142,7 +147,7 @@ struct SettingsView: View {
                     )
                 }
                 
-                SettingRow(label: "Inner Glow Style:") {
+                SettingRow(label: L("settings.innerGlowStyle")) {
                     InnerGlowStylePickerView(
                         selection: Binding(
                             get: { CursorSettings.shared.innerGlowStyle },
@@ -151,7 +156,7 @@ struct SettingsView: View {
                     )
                 }
                 
-                SettingRow(label: "Outer Line Width:") {
+                SettingRow(label: L("settings.outerLineWidth")) {
                     HStack(spacing: 12) {
                         CustomSlider(
                             value: Binding(
@@ -169,7 +174,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                SettingRow(label: "Transparency:") {
+                SettingRow(label: L("settings.transparency")) {
                     HStack(spacing: 12) {
                         CustomSlider(
                             value: Binding(
@@ -187,7 +192,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                SettingRow(label: "Shadow Brightness:") {
+                SettingRow(label: L("settings.shadowBrightness")) {
                     HStack(spacing: 12) {
                         CustomSlider(
                             value: Binding(
@@ -205,7 +210,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                SettingRow(label: "Hide When Inactive:") {
+                SettingRow(label: L("settings.hideWhenInactive")) {
                     Toggle("", isOn: Binding(
                         get: { CursorSettings.shared.hideWhenInactive },
                         set: { CursorSettings.shared.hideWhenInactive = $0 }
@@ -213,7 +218,7 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                 }
                 
-                SettingRow(label: "Glow Effect:") {
+                SettingRow(label: L("settings.glowEffect")) {
                     Toggle("", isOn: Binding(
                         get: { CursorSettings.shared.cursorGlowEnabled },
                         set: { CursorSettings.shared.cursorGlowEnabled = $0 }
@@ -221,7 +226,7 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                 }
                 
-                SettingRow(label: "Gradient Color:") {
+                SettingRow(label: L("settings.gradientColor")) {
                     Toggle("", isOn: Binding(
                         get: { CursorSettings.shared.cursorGradientEnabled },
                         set: { CursorSettings.shared.cursorGradientEnabled = $0 }
@@ -240,10 +245,10 @@ struct SettingsView: View {
     
     private var trailingSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            sectionHeader("Trail Settings")
+            sectionHeader(L("settings.trailSettings"))
 
             VStack(spacing: 16) {
-                SettingRow(label: "Leave Trail:") {
+                SettingRow(label: L("settings.leaveTrail")) {
                         Toggle("", isOn: Binding(
                             get: { CursorSettings.shared.cursorTrailEnabled },
                             set: { CursorSettings.shared.cursorTrailEnabled = $0 }
@@ -252,7 +257,7 @@ struct SettingsView: View {
                     }
                     
                     if CursorSettings.shared.cursorTrailEnabled {
-                        SettingRow(label: "Trail Line Width:") {
+                        SettingRow(label: L("settings.trailLineWidth")) {
                             HStack {
                                 Slider(
                                     value: Binding(
@@ -268,7 +273,7 @@ struct SettingsView: View {
                             }
                         }
                         
-                        SettingRow(label: "Trail Fade Duration:") {
+                        SettingRow(label: L("settings.trailFadeDuration")) {
                             HStack {
                                 Stepper(
                                     value: Binding(
@@ -294,17 +299,36 @@ struct SettingsView: View {
             }
     }
 
-    // MARK: - Tip Section
-    private var tipSection: some View {
-        Text("💡 Tip: ⌘ + Click opens menu and closes pencil mode")
-            .font(.system(size: 11))
-            .foregroundColor(settings.textColor)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    // MARK: - Language Section
+    private var languageSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            sectionHeader(L("settings.language"))
+            
+            VStack(spacing: 16) {
+                SettingRow(label: L("settings.language")) {
+                    Picker("", selection: Binding(
+                        get: { Localization.shared.currentLanguage },
+                        set: { Localization.shared.currentLanguage = $0 }
+                    )) {
+                        ForEach(AppLanguage.allCases, id: \.self) { language in
+                            Text(language.displayName).tag(language)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 320)
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.black.opacity(0.4))
+            )
+        }
     }
     
     // MARK: - Apply Button
     private var applyButton: some View {
-        Button("Apply") {
+        Button(L("settings.apply")) {
             // Close window
             NSApplication.shared.keyWindow?.close()
         }
@@ -447,7 +471,16 @@ struct SettingsView: View {
             settings.objectWillChange.send()
         }
         
-        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12, observer13, observer14, observer15]
+        let observer16 = NotificationCenter.default.addObserver(
+            forName: .languageChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            currentLanguage = Localization.shared.currentLanguage
+            settings.objectWillChange.send()
+        }
+        
+        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12, observer13, observer14, observer15, observer16]
     }
     
     private func removeNotifications() {
@@ -461,6 +494,7 @@ struct SettingRow<Content: View>: View {
     let label: String
     let content: Content
     @ObservedObject private var settings = CursorSettingsObservable()
+    @State private var languageUpdateTrigger = UUID()
     
     init(label: String, @ViewBuilder content: () -> Content) {
         self.label = label
@@ -472,11 +506,15 @@ struct SettingRow<Content: View>: View {
             Text(label)
                 .frame(width: 180, alignment: .leading)
                 .foregroundColor(settings.textColor)
+                .id(languageUpdateTrigger)
             
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(height: 35)
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            languageUpdateTrigger = UUID()
+        }
     }
 }
 
@@ -484,6 +522,7 @@ struct SettingRow<Content: View>: View {
 struct ColorPickerView: View {
     @Binding var selection: CursorColor
     let onSelectionChange: ((CursorColor) -> Void)?
+    @State private var languageUpdateTrigger = UUID()
     
     init(selection: Binding<CursorColor>, onSelectionChange: ((CursorColor) -> Void)? = nil) {
         self._selection = selection
@@ -504,8 +543,12 @@ struct ColorPickerView: View {
         }
         .pickerStyle(.menu)
         .frame(width: 320)
+        .id(languageUpdateTrigger)
         .onChange(of: selection) { newValue in
             onSelectionChange?(newValue)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            languageUpdateTrigger = UUID()
         }
     }
 }
@@ -513,6 +556,7 @@ struct ColorPickerView: View {
 // MARK: - Size Picker View
 struct SizePickerView: View {
     @Binding var selection: CursorSize
+    @State private var languageUpdateTrigger = UUID()
     
     var body: some View {
         Picker("", selection: $selection) {
@@ -522,8 +566,12 @@ struct SizePickerView: View {
         }
         .pickerStyle(.menu)
         .frame(width: 320)
+        .id(languageUpdateTrigger)
         .onChange(of: selection) { _ in
             CursorSettings.shared.size = selection
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            languageUpdateTrigger = UUID()
         }
     }
 }
@@ -531,6 +579,7 @@ struct SizePickerView: View {
 // MARK: - Shape Picker View
 struct ShapePickerView: View {
     @Binding var selection: CursorShape
+    @State private var languageUpdateTrigger = UUID()
     
     var body: some View {
         Picker("", selection: $selection) {
@@ -540,8 +589,12 @@ struct ShapePickerView: View {
         }
         .pickerStyle(.menu)
         .frame(width: 320)
+        .id(languageUpdateTrigger)
         .onChange(of: selection) { _ in
             CursorSettings.shared.shape = selection
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            languageUpdateTrigger = UUID()
         }
     }
 }
@@ -549,6 +602,7 @@ struct ShapePickerView: View {
 // MARK: - Inner Glow Style Picker View
 struct InnerGlowStylePickerView: View {
     @Binding var selection: InnerGlowStyle
+    @State private var languageUpdateTrigger = UUID()
     
     var body: some View {
         Picker("", selection: $selection) {
@@ -558,8 +612,12 @@ struct InnerGlowStylePickerView: View {
         }
         .pickerStyle(.menu)
         .frame(width: 320)
+        .id(languageUpdateTrigger)
         .onChange(of: selection) { _ in
             CursorSettings.shared.innerGlowStyle = selection
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            languageUpdateTrigger = UUID()
         }
     }
 }
