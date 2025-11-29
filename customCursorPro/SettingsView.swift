@@ -35,6 +35,11 @@ struct SettingsView: View {
                     .padding(.top, 30)
                     .padding(.horizontal, 20)
                 
+                // Trailing Settings Section
+                trailingSection
+                    .padding(.top, 30)
+                    .padding(.horizontal, 20)
+
                 // Tip
                 tipSection
                     .padding(.top, 20)
@@ -224,49 +229,6 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                     .disabled(CursorSettings.shared.cursorGlowEnabled) // Отключаем если включен режим свечения
                 }
-                
-                SettingRow(label: "Leave Trail:") {
-                    Toggle("", isOn: Binding(
-                        get: { CursorSettings.shared.cursorTrailEnabled },
-                        set: { CursorSettings.shared.cursorTrailEnabled = $0 }
-                    ))
-                    .toggleStyle(.switch)
-                }
-                
-                if CursorSettings.shared.cursorTrailEnabled {
-                    SettingRow(label: "Trail Line Width:") {
-                        HStack {
-                            Slider(
-                                value: Binding(
-                                    get: { CursorSettings.shared.trailLineWidth },
-                                    set: { CursorSettings.shared.trailLineWidth = $0 }
-                                ),
-                                in: 1...20,
-                                step: 0.5
-                            )
-                            Text(String(format: "%.1f", CursorSettings.shared.trailLineWidth))
-                                .frame(width: 40)
-                                .foregroundColor(settings.textColor)
-                        }
-                    }
-                    
-                    SettingRow(label: "Trail Fade Duration:") {
-                        HStack {
-                            Stepper(
-                                value: Binding(
-                                    get: { CursorSettings.shared.trailFadeDurationMs },
-                                    set: { CursorSettings.shared.trailFadeDurationMs = $0 }
-                                ),
-                                in: 100...2000,
-                                step: 100
-                            ) {
-                                Text("\(CursorSettings.shared.trailFadeDurationMs) ms")
-                                    .frame(width: 80, alignment: .trailing)
-                                    .foregroundColor(settings.textColor)
-                            }
-                        }
-                    }
-                }
             }
             .padding(16)
             .background(
@@ -276,6 +238,62 @@ struct SettingsView: View {
         }
     }
     
+    private var trailingSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            sectionHeader("Trail Settings")
+
+            VStack(spacing: 16) {
+                SettingRow(label: "Leave Trail:") {
+                        Toggle("", isOn: Binding(
+                            get: { CursorSettings.shared.cursorTrailEnabled },
+                            set: { CursorSettings.shared.cursorTrailEnabled = $0 }
+                        ))
+                        .toggleStyle(.switch)
+                    }
+                    
+                    if CursorSettings.shared.cursorTrailEnabled {
+                        SettingRow(label: "Trail Line Width:") {
+                            HStack {
+                                Slider(
+                                    value: Binding(
+                                        get: { CursorSettings.shared.trailLineWidth },
+                                        set: { CursorSettings.shared.trailLineWidth = $0 }
+                                    ),
+                                    in: 1...20,
+                                    step: 0.5
+                                )
+                                Text(String(format: "%.1f", CursorSettings.shared.trailLineWidth))
+                                    .frame(width: 40)
+                                    .foregroundColor(settings.textColor)
+                            }
+                        }
+                        
+                        SettingRow(label: "Trail Fade Duration:") {
+                            HStack {
+                                Stepper(
+                                    value: Binding(
+                                        get: { CursorSettings.shared.trailFadeDurationMs },
+                                        set: { CursorSettings.shared.trailFadeDurationMs = $0 }
+                                    ),
+                                    in: 100...2000,
+                                    step: 100
+                                ) {
+                                    Text("\(CursorSettings.shared.trailFadeDurationMs) ms")
+                                        .frame(width: 80, alignment: .trailing)
+                                        .foregroundColor(settings.textColor)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.black.opacity(0.4))
+                )
+            }
+    }
+
     // MARK: - Tip Section
     private var tipSection: some View {
         Text("💡 Tip: ⌘ + Click opens menu and closes pencil mode")
