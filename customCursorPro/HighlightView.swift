@@ -161,6 +161,12 @@ final class HighlightView: NSView {
             name: .cursorGlowEnabledChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(cursorGradientEnabledChanged),
+            name: .cursorGradientEnabledChanged,
+            object: nil
+        )
     }
     
     @objc private func colorChanged() {
@@ -206,6 +212,10 @@ final class HighlightView: NSView {
     }
     
     @objc private func cursorGlowEnabledChanged() {
+        needsDisplay = true
+    }
+    
+    @objc private func cursorGradientEnabledChanged() {
         needsDisplay = true
     }
     
@@ -443,6 +453,86 @@ final class HighlightView: NSView {
         return CursorSettings.shared.cursorGlowEnabled
     }
     
+    // Проверяет, включен ли режим градиента
+    private func isGradientEnabled() -> Bool {
+        return CursorSettings.shared.cursorGradientEnabled && !isGlowEnabled()
+    }
+    
+    // Рисует путь с градиентным обводкой
+    private func drawGradientStroke(ctx: CGContext, path: CGPath, baseColor: NSColor, lineWidth: CGFloat) {
+        ctx.saveGState()
+        
+        // Градиент: основной цвет -> чуть более светлый основной цвет
+        let startColor = baseColor
+        
+        // Создаем более светлую версию основного цвета (смешиваем с белым)
+        let lighterColor: NSColor
+        if let rgbColor = baseColor.usingColorSpace(.deviceRGB) {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            rgbColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+            // Смешиваем с белым (30% белого + 70% основного цвета)
+            let lighterR = r + (1.0 - r) * 0.3
+            let lighterG = g + (1.0 - g) * 0.3
+            let lighterB = b + (1.0 - b) * 0.3
+            lighterColor = NSColor(deviceRed: lighterR, green: lighterG, blue: lighterB, alpha: a)
+        } else {
+            lighterColor = baseColor
+        }
+        
+        let endColor = lighterColor
+        
+        // Получаем границы пути для создания градиента
+        let boundingBox = path.boundingBox
+        let centerX = boundingBox.midX
+        let centerY = boundingBox.midY
+        let width = boundingBox.width
+        let height = boundingBox.height
+        
+        // Угол 162 градуса (в CSS это от верхнего левого угла по часовой стрелке)
+        // В Core Graphics: 162° = 162 * π / 180 радиан
+        let angleRadians = 162.0 * .pi / 180.0
+        
+        // Вычисляем длину градиента (диагональ bounding box)
+        let diagonal = sqrt(width * width + height * height)
+        let halfLength = diagonal / 2
+        
+        // Вычисляем направление градиента
+        let dx = cos(angleRadians) * halfLength
+        let dy = sin(angleRadians) * halfLength
+        
+        // Точки начала и конца градиента
+        let startPoint = CGPoint(x: centerX - dx, y: centerY - dy)
+        let endPoint = CGPoint(x: centerX + dx, y: centerY + dy)
+        
+        // Создаем цветовое пространство
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        
+        // Создаем градиент с позициями: основной цвет на 28%, более светлый на 50%
+        let colors = [startColor.cgColor, endColor.cgColor]
+        let locations: [CGFloat] = [0.28, 0.5] // 28% и 50%
+        guard let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: locations) else {
+            ctx.restoreGState()
+            return
+        }
+        
+        // Настраиваем параметры линии
+        ctx.setLineWidth(lineWidth)
+        ctx.setLineCap(.round)
+        ctx.setLineJoin(.round)
+        
+        // Добавляем путь
+        ctx.addPath(path)
+        
+        // Конвертируем stroke в fill path для применения градиента
+        ctx.replacePathWithStrokedPath()
+        ctx.clip()
+        
+        // Рисуем градиент
+        ctx.drawLinearGradient(gradient, start: startPoint, end: endPoint, options: [])
+        
+        ctx.restoreGState()
+    }
+    
     // Рисует путь с эффектом свечения как у карандаша: цветная тень + белая линия поверх
     private func drawGlowingStroke(ctx: CGContext, path: CGPath, color: NSColor, lineWidth: CGFloat, opacity: CGFloat) {
         ctx.saveGState()
@@ -519,6 +609,9 @@ final class HighlightView: NSView {
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
             drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else if isGradientEnabled() {
+            // Если включен режим градиента, рисуем градиентный обводку
+            drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
@@ -558,6 +651,9 @@ final class HighlightView: NSView {
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
             drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else if isGradientEnabled() {
+            // Если включен режим градиента, рисуем градиентный обводку
+            drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
@@ -597,6 +693,9 @@ final class HighlightView: NSView {
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
             drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else if isGradientEnabled() {
+            // Если включен режим градиента, рисуем градиентный обводку
+            drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
@@ -680,6 +779,9 @@ final class HighlightView: NSView {
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
             drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else if isGradientEnabled() {
+            // Если включен режим градиента, рисуем градиентный обводку
+            drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
@@ -764,6 +866,9 @@ final class HighlightView: NSView {
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
             drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else if isGradientEnabled() {
+            // Если включен режим градиента, рисуем градиентный обводку
+            drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
@@ -849,6 +954,9 @@ final class HighlightView: NSView {
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
             drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else if isGradientEnabled() {
+            // Если включен режим градиента, рисуем градиентный обводку
+            drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness

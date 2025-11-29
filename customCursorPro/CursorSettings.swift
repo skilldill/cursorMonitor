@@ -145,6 +145,7 @@ class CursorSettings {
     private let shadowBrightnessKey = "cursorShadowBrightness"
     private let hideWhenInactiveKey = "hideWhenInactive"
     private let cursorGlowEnabledKey = "cursorGlowEnabled"
+    private let cursorGradientEnabledKey = "cursorGradientEnabled"
     
     var menuTheme: MenuTheme {
         get {
@@ -391,7 +392,25 @@ class CursorSettings {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: cursorGlowEnabledKey)
+            // Если включаем режим свечения, отключаем градиент
+            if newValue && cursorGradientEnabled {
+                cursorGradientEnabled = false
+            }
             NotificationCenter.default.post(name: .cursorGlowEnabledChanged, object: nil)
+        }
+    }
+    
+    var cursorGradientEnabled: Bool {
+        get {
+            // Проверяем, установлено ли значение (по умолчанию false)
+            if UserDefaults.standard.object(forKey: cursorGradientEnabledKey) != nil {
+                return UserDefaults.standard.bool(forKey: cursorGradientEnabledKey)
+            }
+            return false // По умолчанию выключено
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: cursorGradientEnabledKey)
+            NotificationCenter.default.post(name: .cursorGradientEnabledChanged, object: nil)
         }
     }
     
@@ -416,6 +435,7 @@ extension Notification.Name {
     static let cursorShadowBrightnessChanged = Notification.Name("cursorShadowBrightnessChanged")
     static let hideWhenInactiveChanged = Notification.Name("hideWhenInactiveChanged")
     static let cursorGlowEnabledChanged = Notification.Name("cursorGlowEnabledChanged")
+    static let cursorGradientEnabledChanged = Notification.Name("cursorGradientEnabledChanged")
     static let cursorPositionUpdate = Notification.Name("cursorPositionUpdate")
 }
 

@@ -215,6 +215,15 @@ struct SettingsView: View {
                     ))
                     .toggleStyle(.switch)
                 }
+                
+                SettingRow(label: "Gradient Color:") {
+                    Toggle("", isOn: Binding(
+                        get: { CursorSettings.shared.cursorGradientEnabled },
+                        set: { CursorSettings.shared.cursorGradientEnabled = $0 }
+                    ))
+                    .toggleStyle(.switch)
+                    .disabled(CursorSettings.shared.cursorGlowEnabled) // Отключаем если включен режим свечения
+                }
             }
             .padding(16)
             .background(
@@ -345,7 +354,15 @@ struct SettingsView: View {
             settings.objectWillChange.send()
         }
         
-        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11]
+        let observer12 = NotificationCenter.default.addObserver(
+            forName: .cursorGradientEnabledChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            settings.objectWillChange.send()
+        }
+        
+        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12]
     }
     
     private func removeNotifications() {
