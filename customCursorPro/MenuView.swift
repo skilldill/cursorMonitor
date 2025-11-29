@@ -5,20 +5,11 @@ struct MenuViewSwiftUI: View {
     @ObservedObject private var settings = CursorSettingsObservable()
     @State private var trailEnabled = CursorSettings.shared.cursorTrailEnabled
     
-    var onCalculatorClick: (() -> Void)?
     var onPencilClick: (() -> Void)?
     var onTrailToggle: (() -> Void)?
     
     var body: some View {
         HStack(spacing: 12) {
-            // Кнопка калькулятора
-            MenuButton(
-                icon: "function",
-                action: {
-                    onCalculatorClick?()
-                }
-            )
-            
             // Кнопка карандаша
             MenuButton(
                 icon: "pencil.tip",
@@ -29,7 +20,7 @@ struct MenuViewSwiftUI: View {
             
             // Кнопка следа
             MenuButton(
-                icon: "sparkles",
+                icon: "waveform.path.ecg",
                 opacity: trailEnabled ? 1.0 : 0.5,
                 action: {
                     let newValue = !CursorSettings.shared.cursorTrailEnabled
@@ -45,7 +36,7 @@ struct MenuViewSwiftUI: View {
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(settings.isDark ? 0.3 : 0.15), radius: 10, x: 0, y: -2)
         )
-        .frame(width: 240, height: 80)
+        .frame(width: 176, height: 80)
         .onReceive(NotificationCenter.default.publisher(for: .cursorTrailEnabledChanged)) { _ in
             trailEnabled = CursorSettings.shared.cursorTrailEnabled
         }
@@ -113,12 +104,6 @@ struct VisualEffectView: NSViewRepresentable {
 class MenuViewWrapper: NSView {
     private var hostingView: NSHostingView<MenuViewSwiftUI>?
     
-    var onCalculatorClick: (() -> Void)? {
-        didSet {
-            updateHostingView()
-        }
-    }
-    
     var onPencilClick: (() -> Void)? {
         didSet {
             updateHostingView()
@@ -169,7 +154,6 @@ class MenuViewWrapper: NSView {
         
         // Создаем новый SwiftUI view
         let menuView = MenuViewSwiftUI(
-            onCalculatorClick: onCalculatorClick,
             onPencilClick: onPencilClick,
             onTrailToggle: onTrailToggle
         )

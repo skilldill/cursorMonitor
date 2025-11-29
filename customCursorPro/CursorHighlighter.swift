@@ -647,7 +647,7 @@ final class CursorHighlighter {
     }
     
     private func createMenuWindow() {
-        let menuWidth: CGFloat = 240 // Уменьшили ширину, так как теперь 3 кнопки вместо 4
+        let menuWidth: CGFloat = 176 // Уменьшили ширину, так как теперь 2 кнопки вместо 3
         let menuHeight: CGFloat = 80
         
         let panel = NSPanel(
@@ -675,9 +675,6 @@ final class CursorHighlighter {
         let menuView = MenuViewWrapper(frame: NSRect(x: 0, y: 0, width: menuWidth, height: menuHeight))
         
         // Устанавливаем обработчики для кнопок меню
-        menuView.onCalculatorClick = { [weak self] in
-            self?.openCalculator()
-        }
         menuView.onPencilClick = { [weak self] in
             self?.startPencil()
         }
