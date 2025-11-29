@@ -102,7 +102,7 @@ class TrailWindow: NSWindow {
     
     private func updateTrails() {
         let now = Date()
-        let fadeDuration: TimeInterval = 0.5 // Время исчезновения в секундах
+        let fadeDuration = CursorSettings.shared.trailFadeDuration // Время исчезновения из настроек
         
         // Удаляем старые точки
         _trailPoints.removeAll { point, timestamp in
@@ -172,6 +172,24 @@ class TrailView: NSView {
             name: .outerLineWidthChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsChanged),
+            name: .trailLineWidthChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsChanged),
+            name: .trailFadeDurationChanged,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsChanged),
+            name: .cursorClickColorChanged,
+            object: nil
+        )
     }
     
     @objc private func settingsChanged() {
@@ -194,7 +212,7 @@ class TrailView: NSView {
             if trailPoints.count == 1 {
                 let point = trailPoints[0]
                 let now = Date()
-                let fadeDuration: TimeInterval = 0.5
+                let fadeDuration = CursorSettings.shared.trailFadeDuration
                 let age = now.timeIntervalSince(point.timestamp)
                 let alpha = max(0, 1.0 - (age / fadeDuration))
                 
@@ -203,7 +221,7 @@ class TrailView: NSView {
                     let baseColor = CursorSettings.shared.clickColor.color
                     let isGlowEnabled = CursorSettings.shared.cursorGlowEnabled
                     let opacity = CursorSettings.shared.opacity
-                    let lineWidth = CursorSettings.shared.outerLineWidth
+                    let lineWidth = CursorSettings.shared.trailLineWidth
                     
                     ctx.saveGState()
                     ctx.setLineCap(.round)
@@ -236,14 +254,14 @@ class TrailView: NSView {
         }
         
         let now = Date()
-        let fadeDuration: TimeInterval = 0.5
+        let fadeDuration = CursorSettings.shared.trailFadeDuration
         
         // Получаем настройки цвета и эффекта свечения
         // Используем цвет клика для трека, так как трек рисуется при зажатой кнопке мыши
         let baseColor = CursorSettings.shared.clickColor.color
         let isGlowEnabled = CursorSettings.shared.cursorGlowEnabled
         let opacity = CursorSettings.shared.opacity
-        let lineWidth = CursorSettings.shared.outerLineWidth
+        let lineWidth = CursorSettings.shared.trailLineWidth
         
         ctx.saveGState()
         ctx.setLineCap(.round)

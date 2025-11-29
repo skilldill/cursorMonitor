@@ -232,6 +232,41 @@ struct SettingsView: View {
                     ))
                     .toggleStyle(.switch)
                 }
+                
+                if CursorSettings.shared.cursorTrailEnabled {
+                    SettingRow(label: "Trail Line Width:") {
+                        HStack {
+                            Slider(
+                                value: Binding(
+                                    get: { CursorSettings.shared.trailLineWidth },
+                                    set: { CursorSettings.shared.trailLineWidth = $0 }
+                                ),
+                                in: 1...20,
+                                step: 0.5
+                            )
+                            Text(String(format: "%.1f", CursorSettings.shared.trailLineWidth))
+                                .frame(width: 40)
+                                .foregroundColor(settings.textColor)
+                        }
+                    }
+                    
+                    SettingRow(label: "Trail Fade Duration:") {
+                        HStack {
+                            Stepper(
+                                value: Binding(
+                                    get: { CursorSettings.shared.trailFadeDurationMs },
+                                    set: { CursorSettings.shared.trailFadeDurationMs = $0 }
+                                ),
+                                in: 100...2000,
+                                step: 100
+                            ) {
+                                Text("\(CursorSettings.shared.trailFadeDurationMs) ms")
+                                    .frame(width: 80, alignment: .trailing)
+                                    .foregroundColor(settings.textColor)
+                            }
+                        }
+                    }
+                }
             }
             .padding(16)
             .background(
@@ -378,7 +413,23 @@ struct SettingsView: View {
             settings.objectWillChange.send()
         }
         
-        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12, observer13]
+        let observer14 = NotificationCenter.default.addObserver(
+            forName: .trailLineWidthChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            settings.objectWillChange.send()
+        }
+        
+        let observer15 = NotificationCenter.default.addObserver(
+            forName: .trailFadeDurationChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            settings.objectWillChange.send()
+        }
+        
+        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12, observer13, observer14, observer15]
     }
     
     private func removeNotifications() {

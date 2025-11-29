@@ -147,6 +147,8 @@ class CursorSettings {
     private let cursorGlowEnabledKey = "cursorGlowEnabled"
     private let cursorGradientEnabledKey = "cursorGradientEnabled"
     private let cursorTrailEnabledKey = "cursorTrailEnabled"
+    private let trailLineWidthKey = "trailLineWidth"
+    private let trailFadeDurationKey = "trailFadeDuration"
     
     var menuTheme: MenuTheme {
         get {
@@ -429,6 +431,59 @@ class CursorSettings {
         }
     }
     
+    var trailLineWidth: CGFloat {
+        get {
+            // Проверяем, установлено ли значение
+            if UserDefaults.standard.object(forKey: trailLineWidthKey) != nil {
+                let value = UserDefaults.standard.double(forKey: trailLineWidthKey)
+                if value > 0 {
+                    return value
+                }
+            }
+            // По умолчанию используем толщину внешней линии курсора
+            return outerLineWidth
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: trailLineWidthKey)
+            NotificationCenter.default.post(name: .trailLineWidthChanged, object: nil)
+        }
+    }
+    
+    var trailFadeDuration: TimeInterval {
+        get {
+            // Проверяем, установлено ли значение
+            if UserDefaults.standard.object(forKey: trailFadeDurationKey) != nil {
+                let value = UserDefaults.standard.double(forKey: trailFadeDurationKey)
+                if value > 0 {
+                    return value / 1000.0 // Конвертируем из миллисекунд в секунды
+                }
+            }
+            return 0.5 // По умолчанию 500 мс (0.5 секунды)
+        }
+        set {
+            UserDefaults.standard.set(newValue * 1000.0, forKey: trailFadeDurationKey) // Сохраняем в миллисекундах
+            NotificationCenter.default.post(name: .trailFadeDurationChanged, object: nil)
+        }
+    }
+    
+    // Вспомогательное свойство для получения trailFadeDuration в миллисекундах
+    var trailFadeDurationMs: Int {
+        get {
+            // Проверяем, установлено ли значение
+            if UserDefaults.standard.object(forKey: trailFadeDurationKey) != nil {
+                let value = UserDefaults.standard.double(forKey: trailFadeDurationKey)
+                if value > 0 {
+                    return Int(value)
+                }
+            }
+            return 500 // По умолчанию 500 мс
+        }
+        set {
+            UserDefaults.standard.set(Double(newValue), forKey: trailFadeDurationKey) // Сохраняем в миллисекундах
+            NotificationCenter.default.post(name: .trailFadeDurationChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -452,6 +507,8 @@ extension Notification.Name {
     static let cursorGlowEnabledChanged = Notification.Name("cursorGlowEnabledChanged")
     static let cursorGradientEnabledChanged = Notification.Name("cursorGradientEnabledChanged")
     static let cursorTrailEnabledChanged = Notification.Name("cursorTrailEnabledChanged")
+    static let trailLineWidthChanged = Notification.Name("trailLineWidthChanged")
+    static let trailFadeDurationChanged = Notification.Name("trailFadeDurationChanged")
     static let cursorPositionUpdate = Notification.Name("cursorPositionUpdate")
 }
 
