@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let highlighter = CursorHighlighter()
     private var settingsWindow: SettingsWindow?
+    private var shortcutsWindow: ShortcutsWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -76,6 +77,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
         
+        let shortcutsItem = NSMenuItem(
+            title: "Keyboard Shortcuts...",
+            action: #selector(showShortcuts),
+            keyEquivalent: ""
+        )
+        shortcutsItem.target = self
+        menu.addItem(shortcutsItem)
+        
         let settingsItem = NSMenuItem(
             title: "Настройки...",
             action: #selector(showSettings),
@@ -102,6 +111,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             settingsWindow = SettingsWindow()
         }
         settingsWindow?.showWindow()
+    }
+    
+    @objc private func showShortcuts() {
+        if shortcutsWindow == nil {
+            shortcutsWindow = ShortcutsWindow()
+        }
+        shortcutsWindow?.showWindow()
     }
 
     @objc private func toggleHighlight() {
