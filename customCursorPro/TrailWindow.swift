@@ -199,7 +199,8 @@ class TrailView: NSView {
                 let alpha = max(0, 1.0 - (age / fadeDuration))
                 
                 if alpha > 0 {
-                    let baseColor = CursorSettings.shared.color.color
+                    // Используем цвет клика для трека
+                    let baseColor = CursorSettings.shared.clickColor.color
                     let isGlowEnabled = CursorSettings.shared.cursorGlowEnabled
                     let opacity = CursorSettings.shared.opacity
                     let lineWidth = CursorSettings.shared.outerLineWidth
@@ -238,7 +239,8 @@ class TrailView: NSView {
         let fadeDuration: TimeInterval = 0.5
         
         // Получаем настройки цвета и эффекта свечения
-        let baseColor = CursorSettings.shared.color.color
+        // Используем цвет клика для трека, так как трек рисуется при зажатой кнопке мыши
+        let baseColor = CursorSettings.shared.clickColor.color
         let isGlowEnabled = CursorSettings.shared.cursorGlowEnabled
         let opacity = CursorSettings.shared.opacity
         let lineWidth = CursorSettings.shared.outerLineWidth
