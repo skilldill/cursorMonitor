@@ -51,6 +51,7 @@ enum CursorSize: String, CaseIterable {
     case xl = "xl"
     case xxl = "xxl"
     case xxxl = "xxxl"
+    case xxxxl = "xxxxl"
     
     var displayName: String {
         switch self {
@@ -61,6 +62,7 @@ enum CursorSize: String, CaseIterable {
         case .xl: return "XL"
         case .xxl: return "XXL"
         case .xxxl: return "XXXL"
+        case .xxxxl: return "XXXXL"
         }
     }
     
@@ -73,6 +75,7 @@ enum CursorSize: String, CaseIterable {
         case .xl: return 130
         case .xxl: return 150
         case .xxxl: return 170
+        case .xxxxl: return 190
         }
     }
 }

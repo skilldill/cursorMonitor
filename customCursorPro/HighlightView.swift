@@ -330,7 +330,7 @@ final class HighlightView: NSView {
         // - Для XS и S: без изменений
         let currentSize = CursorSettings.shared.size
         let targetInnerLineWidth: CGFloat
-        if currentSize == .l || currentSize == .xl || currentSize == .xxl || currentSize == .xxxl {
+        if currentSize == .l || currentSize == .xl || currentSize == .xxl || currentSize == .xxxl || currentSize == .xxxxl {
             targetInnerLineWidth = 8.0 * 2.5 // Увеличиваем в 2.5 раза для размеров L и выше
         } else if currentSize == .m {
             targetInnerLineWidth = 8.0 * 1.5 // Увеличиваем в 1.5 раза для размера M
@@ -420,7 +420,7 @@ final class HighlightView: NSView {
         // - Для XS и S: без изменений
         let currentSize = CursorSettings.shared.size
         let targetInnerLineWidth: CGFloat
-        if currentSize == .l || currentSize == .xl || currentSize == .xxl || currentSize == .xxxl {
+        if currentSize == .l || currentSize == .xl || currentSize == .xxl || currentSize == .xxxl || currentSize == .xxxxl {
             targetInnerLineWidth = 8.0 * 2.5 // Увеличиваем в 2.5 раза для размеров L и выше
         } else if currentSize == .m {
             targetInnerLineWidth = 8.0 * 1.5 // Увеличиваем в 1.5 раза для размера M
