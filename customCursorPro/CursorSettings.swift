@@ -199,7 +199,7 @@ class CursorSettings {
                 default: break
                 }
             }
-            return .m // По умолчанию средний (M)
+            return .l // По умолчанию большой (L)
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: sizeKey)
@@ -213,7 +213,7 @@ class CursorSettings {
             if value > 0 {
                 return value
             }
-            return 0.7 // По умолчанию 70% непрозрачности
+            return 1.0 // По умолчанию 100% непрозрачности
         }
         set {
             UserDefaults.standard.set(newValue, forKey: opacityKey)
@@ -377,7 +377,7 @@ class CursorSettings {
             if UserDefaults.standard.object(forKey: hideWhenInactiveKey) != nil {
                 return UserDefaults.standard.bool(forKey: hideWhenInactiveKey)
             }
-            return false // По умолчанию выключено
+            return true // По умолчанию включено (исчезновение курсора со временем)
         }
         set {
             UserDefaults.standard.set(newValue, forKey: hideWhenInactiveKey)
@@ -482,6 +482,77 @@ class CursorSettings {
             UserDefaults.standard.set(Double(newValue), forKey: trailFadeDurationKey) // Сохраняем в миллисекундах
             NotificationCenter.default.post(name: .trailFadeDurationChanged, object: nil)
         }
+    }
+    
+    // Метод для сброса настроек к значениям по умолчанию (кроме языка)
+    func resetToDefaults() {
+        // Цвет курсора
+        UserDefaults.standard.set(CursorColor.indigo.rawValue, forKey: colorKey)
+        
+        // Размер курсора
+        UserDefaults.standard.set(CursorSize.l.rawValue, forKey: sizeKey)
+        
+        // Цвет клика
+        UserDefaults.standard.set(CursorColor.green.rawValue, forKey: clickColorKey)
+        
+        // Прозрачность
+        UserDefaults.standard.set(1.0, forKey: opacityKey)
+        
+        // Форма курсора
+        UserDefaults.standard.set(CursorShape.rhombus.rawValue, forKey: cursorShapeKey)
+        
+        // Стиль внутреннего свечения
+        UserDefaults.standard.set(InnerGlowStyle.solid.rawValue, forKey: innerGlowStyleKey)
+        
+        // Ширина внешней линии
+        UserDefaults.standard.set(5.0, forKey: outerLineWidthKey)
+        
+        // Яркость тени
+        UserDefaults.standard.set(0.4, forKey: shadowBrightnessKey)
+        
+        // Скрывать при неактивности
+        UserDefaults.standard.set(true, forKey: hideWhenInactiveKey)
+        
+        // Эффект свечения
+        UserDefaults.standard.set(false, forKey: cursorGlowEnabledKey)
+        
+        // Градиентный цвет
+        UserDefaults.standard.set(false, forKey: cursorGradientEnabledKey)
+        
+        // След курсора
+        UserDefaults.standard.set(false, forKey: cursorTrailEnabledKey)
+        
+        // Толщина линии следа (будет использовать outerLineWidth по умолчанию)
+        UserDefaults.standard.removeObject(forKey: trailLineWidthKey)
+        
+        // Длительность затухания следа
+        UserDefaults.standard.set(500.0, forKey: trailFadeDurationKey)
+        
+        // Настройки карандаша
+        UserDefaults.standard.set(CursorColor.red.rawValue, forKey: pencilColorKey)
+        UserDefaults.standard.set(3.0, forKey: pencilLineWidthKey)
+        UserDefaults.standard.set(1.0, forKey: pencilOpacityKey)
+        UserDefaults.standard.set(false, forKey: pencilGlowEnabledKey)
+        
+        // Отправляем уведомления об изменении всех настроек
+        NotificationCenter.default.post(name: .cursorColorChanged, object: nil)
+        NotificationCenter.default.post(name: .cursorSizeChanged, object: nil)
+        NotificationCenter.default.post(name: .cursorClickColorChanged, object: nil)
+        NotificationCenter.default.post(name: .cursorOpacityChanged, object: nil)
+        NotificationCenter.default.post(name: .cursorShapeChanged, object: nil)
+        NotificationCenter.default.post(name: .innerGlowStyleChanged, object: nil)
+        NotificationCenter.default.post(name: .outerLineWidthChanged, object: nil)
+        NotificationCenter.default.post(name: .cursorShadowBrightnessChanged, object: nil)
+        NotificationCenter.default.post(name: .hideWhenInactiveChanged, object: nil)
+        NotificationCenter.default.post(name: .cursorGlowEnabledChanged, object: nil)
+        NotificationCenter.default.post(name: .cursorGradientEnabledChanged, object: nil)
+        NotificationCenter.default.post(name: .cursorTrailEnabledChanged, object: nil)
+        NotificationCenter.default.post(name: .trailLineWidthChanged, object: nil)
+        NotificationCenter.default.post(name: .trailFadeDurationChanged, object: nil)
+        NotificationCenter.default.post(name: .pencilColorChanged, object: nil)
+        NotificationCenter.default.post(name: .pencilLineWidthChanged, object: nil)
+        NotificationCenter.default.post(name: .pencilOpacityChanged, object: nil)
+        NotificationCenter.default.post(name: .pencilGlowEnabledChanged, object: nil)
     }
     
     private init() {}

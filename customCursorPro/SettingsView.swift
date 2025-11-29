@@ -46,9 +46,14 @@ struct SettingsView: View {
                     .padding(.top, 30)
                     .padding(.horizontal, 20)
                 
+                // Reset Button
+                resetButton
+                    .padding(.top, 20)
+                    .padding(.horizontal, 20)
+                
                 // Apply Button
                 applyButton
-                    .padding(.top, 20)
+                    .padding(.top, 10)
                     .padding(.bottom, 20)
                     .padding(.horizontal, 20)
             }
@@ -324,6 +329,30 @@ struct SettingsView: View {
                     .fill(Color.black.opacity(0.4))
             )
         }
+    }
+    
+    // MARK: - Reset Button
+    private var resetButton: some View {
+        Button(L("settings.resetDefaults")) {
+            let alert = NSAlert()
+            alert.messageText = L("settings.resetDefaultsConfirm")
+            alert.informativeText = L("settings.resetDefaultsWarning")
+            alert.addButton(withTitle: L("settings.reset"))
+            alert.addButton(withTitle: L("note.cancel"))
+            alert.alertStyle = .warning
+            
+            if alert.runModal() == .alertFirstButtonReturn {
+                CursorSettings.shared.resetToDefaults()
+                // Обновляем preview
+                previewBaseColor = CursorSettings.shared.color.color
+                previewClickColor = CursorSettings.shared.clickColor.color
+                previewOpacity = CursorSettings.shared.opacity
+                previewSize = CursorSettings.shared.size.diameter
+            }
+        }
+        .buttonStyle(.bordered)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 20)
     }
     
     // MARK: - Apply Button

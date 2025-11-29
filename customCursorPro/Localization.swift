@@ -23,11 +23,7 @@ class Localization {
                let language = AppLanguage(rawValue: rawValue) {
                 return language
             }
-            // Определяем язык системы по умолчанию
-            let preferredLanguage = Locale.preferredLanguages.first ?? "en"
-            if preferredLanguage.hasPrefix("ru") {
-                return .russian
-            }
+            // По умолчанию английский
             return .english
         }
         set {
@@ -87,6 +83,10 @@ class Localization {
                 "settings.trailFadeDuration": "Длительность затухания следа:",
                 "settings.tip": "💡 Совет: ⌘ + Клик открывает меню и закрывает режим карандаша",
                 "settings.apply": "Применить",
+                "settings.resetDefaults": "Вернуть настройки по-умолчанию",
+                "settings.resetDefaultsConfirm": "Сбросить все настройки к значениям по умолчанию?",
+                "settings.resetDefaultsWarning": "Это действие сбросит все настройки, кроме языка.",
+                "settings.reset": "Сбросить",
                 "settings.language": "Язык:",
                 
                 // ShortcutsWindow
@@ -181,6 +181,10 @@ class Localization {
                 "settings.trailFadeDuration": "Trail Fade Duration:",
                 "settings.tip": "💡 Tip: ⌘ + Click opens menu and closes pencil mode",
                 "settings.apply": "Apply",
+                "settings.resetDefaults": "Reset to Defaults",
+                "settings.resetDefaultsConfirm": "Reset all settings to default values?",
+                "settings.resetDefaultsWarning": "This will reset all settings except language.",
+                "settings.reset": "Reset",
                 "settings.language": "Language:",
                 
                 // ShortcutsWindow
