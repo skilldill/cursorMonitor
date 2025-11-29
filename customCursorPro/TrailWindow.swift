@@ -1,8 +1,19 @@
 import Cocoa
 
+// Структура для хранения пути трека с временной меткой
+struct TrailPath {
+    let points: [NSPoint] // Глобальные координаты точек
+    let startTime: Date
+    let color: NSColor
+    let opacity: CGFloat
+    let lineWidth: CGFloat
+}
+
 class TrailWindow: NSWindow {
     private var displayLink: CVDisplayLink?
     private var isDrawing = false
+    private var currentPathPoints: [NSPoint] = [] // Текущий путь как массив глобальных точек
+    private var completedPaths: [TrailPath] = [] // Завершенные пути с временными метками
     
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
@@ -34,24 +45,24 @@ class TrailWindow: NSWindow {
     
     func startTrail(at point: NSPoint) {
         isDrawing = true
-        _trailPoints.removeAll()
+        currentPathPoints = [point] // Начинаем новый путь
         // Убеждаемся, что окно видимо
         orderFrontRegardless()
-        addTrailPoint(point)
         // Убеждаемся, что displayLink запущен
         if displayLink == nil {
             startDisplayLink()
         }
+        contentView?.needsDisplay = true
     }
     
     func addTrailPoint(_ point: NSPoint) {
         guard isDrawing else { return }
         // Убеждаемся, что окно видимо
         orderFrontRegardless()
-        _trailPoints.append((point: point, timestamp: Date()))
+        currentPathPoints.append(point)
         // Ограничиваем количество точек для производительности
-        if _trailPoints.count > 1000 {
-            _trailPoints.removeFirst(100)
+        if currentPathPoints.count > 1000 {
+            currentPathPoints.removeFirst(100)
         }
         // Убеждаемся, что displayLink запущен для обновления
         if displayLink == nil {
@@ -61,14 +72,29 @@ class TrailWindow: NSWindow {
     }
     
     func endTrail() {
+        guard isDrawing, !currentPathPoints.isEmpty else { return }
         isDrawing = false
-        // Не останавливаем displayLink сразу, чтобы точки могли плавно исчезнуть
-        // DisplayLink будет остановлен автоматически когда все точки исчезнут в updateTrails()
+        
+        // Сохраняем завершенный путь с временной меткой
+        let trailPath = TrailPath(
+            points: currentPathPoints,
+            startTime: Date(),
+            color: CursorSettings.shared.clickColor.color,
+            opacity: CursorSettings.shared.opacity,
+            lineWidth: CursorSettings.shared.trailLineWidth
+        )
+        completedPaths.append(trailPath)
+        
+        currentPathPoints.removeAll()
+        // Не останавливаем displayLink сразу, чтобы пути могли плавно исчезнуть
+        // DisplayLink будет остановлен автоматически когда все пути исчезнут в updateTrails()
     }
     
     func clearTrails() {
-        _trailPoints.removeAll()
+        currentPathPoints.removeAll()
+        completedPaths.removeAll()
         contentView?.needsDisplay = true
+        stopDisplayLink()
     }
     
     private func startDisplayLink() {
@@ -104,31 +130,33 @@ class TrailWindow: NSWindow {
         let now = Date()
         let fadeDuration = CursorSettings.shared.trailFadeDuration // Время исчезновения из настроек
         
-        // Удаляем старые точки
-        _trailPoints.removeAll { point, timestamp in
-            now.timeIntervalSince(timestamp) > fadeDuration
+        // Удаляем старые пути
+        completedPaths.removeAll { path in
+            now.timeIntervalSince(path.startTime) > fadeDuration
         }
         
-        if !_trailPoints.isEmpty {
+        if !completedPaths.isEmpty || !currentPathPoints.isEmpty {
             contentView?.needsDisplay = true
         } else {
-            // Если все точки исчезли и мы не рисуем, останавливаем displayLink
+            // Если все пути исчезли и мы не рисуем, останавливаем displayLink
             if !isDrawing {
                 stopDisplayLink()
             }
         }
     }
     
-    var trailPoints: [(point: NSPoint, timestamp: Date)] {
-        get {
-            return _trailPoints
-        }
-        set {
-            _trailPoints = newValue
-        }
+    // Геттеры для TrailView
+    func getCurrentPathPoints() -> [NSPoint] {
+        return currentPathPoints
     }
     
-    private var _trailPoints: [(point: NSPoint, timestamp: Date)] = []
+    func getCompletedPaths() -> [TrailPath] {
+        return completedPaths
+    }
+    
+    func getIsDrawing() -> Bool {
+        return isDrawing
+    }
     
 }
 
@@ -157,19 +185,13 @@ class TrailView: NSView {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(settingsChanged),
-            name: .cursorColorChanged,
+            name: .cursorClickColorChanged,
             object: nil
         )
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(settingsChanged),
             name: .cursorOpacityChanged,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(settingsChanged),
-            name: .outerLineWidthChanged,
             object: nil
         )
         NotificationCenter.default.addObserver(
@@ -182,12 +204,6 @@ class TrailView: NSView {
             self,
             selector: #selector(settingsChanged),
             name: .trailFadeDurationChanged,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(settingsChanged),
-            name: .cursorClickColorChanged,
             object: nil
         )
     }
@@ -204,120 +220,142 @@ class TrailView: NSView {
         super.draw(dirtyRect)
         
         guard let window = window as? TrailWindow else { return }
-        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
-        
-        let trailPoints = window.trailPoints
-        guard trailPoints.count >= 2 else { 
-            // Если точек меньше 2, но есть хотя бы одна, рисуем точку
-            if trailPoints.count == 1 {
-                let point = trailPoints[0]
-                let now = Date()
-                let fadeDuration = CursorSettings.shared.trailFadeDuration
-                let age = now.timeIntervalSince(point.timestamp)
-                let alpha = max(0, 1.0 - (age / fadeDuration))
-                
-                if alpha > 0 {
-                    // Используем цвет клика для трека
-                    let baseColor = CursorSettings.shared.clickColor.color
-                    let isGlowEnabled = CursorSettings.shared.cursorGlowEnabled
-                    let opacity = CursorSettings.shared.opacity
-                    let lineWidth = CursorSettings.shared.trailLineWidth
-                    
-                    ctx.saveGState()
-                    ctx.setLineCap(.round)
-                    ctx.setLineWidth(lineWidth)
-                    
-                    let path = CGMutablePath()
-                    path.addEllipse(in: CGRect(x: point.point.x - lineWidth/2, y: point.point.y - lineWidth/2, width: lineWidth, height: lineWidth))
-                    
-                    if isGlowEnabled {
-                        let shadowColor = baseColor.withAlphaComponent(opacity * alpha)
-                        let blurRadius = lineWidth * 2.5
-                        ctx.setShadow(offset: .zero, blur: blurRadius, color: shadowColor.cgColor)
-                        ctx.addPath(path)
-                        ctx.setFillColor(shadowColor.cgColor)
-                        ctx.fillPath()
-                        ctx.setShadow(offset: .zero, blur: 0, color: nil)
-                        ctx.addPath(path)
-                        ctx.setFillColor(NSColor.white.withAlphaComponent(opacity * alpha).cgColor)
-                        ctx.fillPath()
-                    } else {
-                        ctx.addPath(path)
-                        ctx.setFillColor(baseColor.withAlphaComponent(opacity * alpha).cgColor)
-                        ctx.fillPath()
-                    }
-                    
-                    ctx.restoreGState()
-                }
-            }
-            return 
-        }
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
         
         let now = Date()
         let fadeDuration = CursorSettings.shared.trailFadeDuration
-        
-        // Получаем настройки цвета и эффекта свечения
-        // Используем цвет клика для трека, так как трек рисуется при зажатой кнопке мыши
-        let baseColor = CursorSettings.shared.clickColor.color
         let isGlowEnabled = CursorSettings.shared.cursorGlowEnabled
-        let opacity = CursorSettings.shared.opacity
-        let lineWidth = CursorSettings.shared.trailLineWidth
         
-        ctx.saveGState()
-        ctx.setLineCap(.round)
-        ctx.setLineJoin(.round)
-        ctx.setLineWidth(lineWidth)
+        // Получаем frame окна для преобразования координат
+        let windowFrame = window.frame
         
-        // Рисуем линии между точками с эффектом исчезновения
-        for i in 0..<trailPoints.count - 1 {
-            let point1 = trailPoints[i]
-            let point2 = trailPoints[i + 1]
+        // Рисуем все завершенные пути с fade-out эффектом
+        let completedPaths = window.getCompletedPaths()
+        for trailPath in completedPaths {
+            let age = now.timeIntervalSince(trailPath.startTime)
+            let alpha = max(0, 1.0 - (age / fadeDuration))
             
-            let age1 = now.timeIntervalSince(point1.timestamp)
-            let age2 = now.timeIntervalSince(point2.timestamp)
-            
-            // Вычисляем прозрачность на основе возраста точки
-            let alpha1 = max(0, 1.0 - (age1 / fadeDuration))
-            let alpha2 = max(0, 1.0 - (age2 / fadeDuration))
-            
-            // Используем среднюю прозрачность для сегмента
-            let segmentAlpha = (alpha1 + alpha2) / 2.0
-            
-            if segmentAlpha > 0 {
-                let path = CGMutablePath()
-                path.move(to: point1.point)
-                path.addLine(to: point2.point)
+            if alpha > 0 && !trailPath.points.isEmpty {
+                // Создаем NSBezierPath из точек (как в карандаше)
+                let bezierPath = NSBezierPath()
+                bezierPath.lineWidth = trailPath.lineWidth
+                bezierPath.lineCapStyle = .round
+                bezierPath.lineJoinStyle = .round
                 
-                if isGlowEnabled {
-                    // Рисуем с эффектом свечения
-                    let shadowColor = baseColor.withAlphaComponent(opacity * segmentAlpha)
-                    let blurRadius = lineWidth * 2.5
-                    ctx.setShadow(
-                        offset: .zero,
-                        blur: blurRadius,
-                        color: shadowColor.cgColor
+                // Преобразуем точки из глобальных координат в локальные координаты окна
+                for (index, point) in trailPath.points.enumerated() {
+                    let localPoint = NSPoint(
+                        x: point.x - windowFrame.origin.x,
+                        y: point.y - windowFrame.origin.y
                     )
                     
-                    ctx.addPath(path)
-                    ctx.setStrokeColor(shadowColor.cgColor)
-                    ctx.strokePath()
-                    
-                    ctx.setShadow(offset: .zero, blur: 0, color: nil)
-                    
-                    ctx.addPath(path)
-                    ctx.setStrokeColor(NSColor.white.withAlphaComponent(opacity * segmentAlpha).cgColor)
-                    ctx.setLineWidth(lineWidth * 0.7)
-                    ctx.strokePath()
+                    if index == 0 {
+                        bezierPath.move(to: localPoint)
+                    } else {
+                        bezierPath.line(to: localPoint)
+                    }
+                }
+                
+                // Рисуем путь с учетом fade-out и эффекта свечения (как карандаш)
+                if isGlowEnabled {
+                    drawGlowingPath(context: context, path: bezierPath, color: trailPath.color, opacity: trailPath.opacity * alpha, lineWidth: trailPath.lineWidth)
                 } else {
-                    // Обычная линия
-                    ctx.addPath(path)
-                    ctx.setStrokeColor(baseColor.withAlphaComponent(opacity * segmentAlpha).cgColor)
-                    ctx.strokePath()
+                    // Обычная цветная линия с fade-out
+                    trailPath.color.withAlphaComponent(trailPath.opacity * alpha).setStroke()
+                    bezierPath.stroke()
                 }
             }
         }
         
-        ctx.restoreGState()
+        // Рисуем текущий путь, если он есть (без fade-out, так как он еще рисуется)
+        let currentPathPoints = window.getCurrentPathPoints()
+        if !currentPathPoints.isEmpty && window.getIsDrawing() {
+            let bezierPath = NSBezierPath()
+            bezierPath.lineWidth = CursorSettings.shared.trailLineWidth
+            bezierPath.lineCapStyle = .round
+            bezierPath.lineJoinStyle = .round
+            
+            let baseColor = CursorSettings.shared.clickColor.color
+            let opacity = CursorSettings.shared.opacity
+            
+            // Преобразуем точки из глобальных координат в локальные координаты окна
+            for (index, point) in currentPathPoints.enumerated() {
+                let localPoint = NSPoint(
+                    x: point.x - windowFrame.origin.x,
+                    y: point.y - windowFrame.origin.y
+                )
+                
+                if index == 0 {
+                    bezierPath.move(to: localPoint)
+                } else {
+                    bezierPath.line(to: localPoint)
+                }
+            }
+            
+            // Рисуем текущий путь (как карандаш)
+            if isGlowEnabled {
+                drawGlowingPath(context: context, path: bezierPath, color: baseColor, opacity: opacity, lineWidth: CursorSettings.shared.trailLineWidth)
+            } else {
+                // Обычная цветная линия
+                baseColor.withAlphaComponent(opacity).setStroke()
+                bezierPath.stroke()
+            }
+        }
+    }
+    
+    // Рисует путь с эффектом свечения: белая линия с цветной тенью (как в карандаше)
+    private func drawGlowingPath(context: CGContext, path: NSBezierPath, color: NSColor, opacity: CGFloat, lineWidth: CGFloat) {
+        context.saveGState()
+        
+        // Создаем CGPath из NSBezierPath
+        let cgPath = CGMutablePath()
+        var points = [NSPoint](repeating: .zero, count: 3)
+        
+        for i in 0..<path.elementCount {
+            let element = path.element(at: i, associatedPoints: &points)
+            
+            switch element {
+            case .moveTo:
+                cgPath.move(to: points[0])
+            case .lineTo:
+                cgPath.addLine(to: points[0])
+            case .curveTo:
+                cgPath.addCurve(to: points[2], control1: points[0], control2: points[1])
+            case .closePath:
+                cgPath.closeSubpath()
+            @unknown default:
+                break
+            }
+        }
+        
+        // Настраиваем параметры линии
+        context.setLineWidth(lineWidth)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        
+        // Рисуем цветную тень (размытие)
+        let shadowColor = color.withAlphaComponent(opacity)
+        context.setShadow(
+            offset: .zero,
+            blur: lineWidth * 2.5, // Размытие пропорционально толщине линии
+            color: shadowColor.cgColor
+        )
+        
+        // Рисуем тень
+        context.addPath(cgPath)
+        context.setStrokeColor(shadowColor.cgColor)
+        context.strokePath()
+        
+        // Отключаем тень для белой линии
+        context.setShadow(offset: .zero, blur: 0, color: nil)
+        
+        // Рисуем белую линию поверх тени
+        context.addPath(cgPath)
+        context.setStrokeColor(NSColor.white.withAlphaComponent(opacity).cgColor)
+        context.setLineWidth(lineWidth * 0.7) // Немного тоньше для лучшего эффекта
+        context.strokePath()
+        
+        context.restoreGState()
     }
 }
 
