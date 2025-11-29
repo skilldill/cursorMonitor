@@ -507,9 +507,9 @@ final class HighlightView: NSView {
         // Создаем цветовое пространство
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         
-        // Создаем градиент с позициями: основной цвет на 28%, более светлый на 50%
-        let colors = [startColor.cgColor, endColor.cgColor]
-        let locations: [CGFloat] = [0.28, 0.5] // 28% и 50%
+        // Создаем градиент с позициями: более светлый на 28%, основной цвет на 50%
+        let colors = [startColor.cgColor, endColor.cgColor] // Основной -> светлый
+        let locations: [CGFloat] = [0.5, 0.9] // 28% и 50%
         guard let gradient = CGGradient(colorsSpace: colorSpace, colors: colors as CFArray, locations: locations) else {
             ctx.restoreGState()
             return
