@@ -155,6 +155,12 @@ final class HighlightView: NSView {
             name: .cursorShadowBrightnessChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(cursorGlowEnabledChanged),
+            name: .cursorGlowEnabledChanged,
+            object: nil
+        )
     }
     
     @objc private func colorChanged() {
@@ -199,6 +205,10 @@ final class HighlightView: NSView {
         needsDisplay = true
     }
     
+    @objc private func cursorGlowEnabledChanged() {
+        needsDisplay = true
+    }
+    
     deinit {
         NotificationCenter.default.removeObserver(self)
         animationTimer?.invalidate()
@@ -208,6 +218,8 @@ final class HighlightView: NSView {
     private func commonInit() {
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
+        // Отключаем обрезку содержимого, чтобы тень не обрезалась
+        layer?.masksToBounds = false
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -269,7 +281,10 @@ final class HighlightView: NSView {
         let innerLineWidth: CGFloat = 8
 
         // Немного отступим от краёв
-        let inset: CGFloat = 12
+        // Если включен режим свечения, увеличиваем отступ, чтобы фигура не рисовалась слишком близко к краям увеличенного view
+        let baseInset: CGFloat = 12
+        let glowInset: CGFloat = isGlowEnabled() ? (outerLineWidth * 2.5 + 10) : 0 // Добавляем отступ для тени + запас
+        let inset: CGFloat = baseInset + glowInset
 
         // Прямоугольник, в который впишем фигуру
         let rect = bounds.insetBy(dx: inset, dy: inset)
@@ -277,6 +292,8 @@ final class HighlightView: NSView {
         let size = min(rect.width, rect.height) * animatedScale
 
         ctx.saveGState()
+        // Фигура всегда рисуется по центру view
+        // Если включен режим свечения, view увеличен, но фигура остается по центру увеличенного view
         ctx.translateBy(x: bounds.midX, y: bounds.midY)
         
         let shape = CursorSettings.shared.shape
@@ -421,6 +438,46 @@ final class HighlightView: NSView {
     
     // MARK: - Отрисовка форм
     
+    // Проверяет, включен ли режим свечения
+    private func isGlowEnabled() -> Bool {
+        return CursorSettings.shared.cursorGlowEnabled
+    }
+    
+    // Рисует путь с эффектом свечения как у карандаша: цветная тень + белая линия поверх
+    private func drawGlowingStroke(ctx: CGContext, path: CGPath, color: NSColor, lineWidth: CGFloat, opacity: CGFloat) {
+        ctx.saveGState()
+        
+        // Настраиваем параметры линии
+        ctx.setLineWidth(lineWidth)
+        ctx.setLineCap(.round)
+        ctx.setLineJoin(.round)
+        
+        // Рисуем цветную тень (размытие)
+        let shadowColor = color.withAlphaComponent(opacity)
+        let blurRadius = lineWidth * 2.5 // Размытие пропорционально толщине линии, как у карандаша
+        ctx.setShadow(
+            offset: .zero,
+            blur: blurRadius,
+            color: shadowColor.cgColor
+        )
+        
+        // Рисуем тень
+        ctx.addPath(path)
+        ctx.setStrokeColor(shadowColor.cgColor)
+        ctx.strokePath()
+        
+        // Отключаем тень для белой линии
+        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        
+        // Рисуем белую линию поверх тени
+        ctx.addPath(path)
+        ctx.setStrokeColor(NSColor.white.withAlphaComponent(opacity).cgColor)
+        ctx.setLineWidth(lineWidth * 0.7) // Немного тоньше для лучшего эффекта
+        ctx.strokePath()
+        
+        ctx.restoreGState()
+    }
+    
     // Вспомогательная функция для рисования сегментированной линии используя dash pattern
     private func drawSegmentedStroke(ctx: CGContext, path: CGPath, color: NSColor, lineWidth: CGFloat, segmentLength: CGFloat = 8, gapLength: CGFloat = 4) {
         ctx.addPath(path)
@@ -436,6 +493,7 @@ final class HighlightView: NSView {
         // Используем анимированную толщину вместо переданного параметра для эффекта клика
         let actualLineWidth = animatedInnerLineWidth
         
+        // Внутреннее кольцо всегда рисуется без эффекта свечения
         let style = CursorSettings.shared.innerGlowStyle
         switch style {
         case .segmented:
@@ -455,26 +513,32 @@ final class HighlightView: NSView {
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
         let cornerRadius = size / 3.5 // Сильно скругленные углы
         
-        // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowBrightness = CursorSettings.shared.shadowBrightness
-        if shadowBrightness > 0 {
-            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-            ctx.setShadow(
-                offset: CGSize(width: 0, height: 0),
-                blur: 15.0, // Радиус размытия для легкой подсветки
-                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
-            )
-        }
-        
         // Внешнее кольцо
         let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
-        ctx.addPath(outerPath)
-        ctx.setStrokeColor(base.cgColor)
-        ctx.setLineWidth(outerLineWidth)
-        ctx.strokePath()
         
-        // Отключаем тень для внутреннего кольца
-        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        if isGlowEnabled() {
+            // Если включен режим свечения, используем эффект как у карандаша
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else {
+            // Настраиваем тень для легкой подсветки внешнего контура
+            let shadowBrightness = CursorSettings.shared.shadowBrightness
+            if shadowBrightness > 0 {
+                let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+                ctx.setShadow(
+                    offset: CGSize(width: 0, height: 0),
+                    blur: 15.0, // Радиус размытия для легкой подсветки
+                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                )
+            }
+            
+            ctx.addPath(outerPath)
+            ctx.setStrokeColor(base.cgColor)
+            ctx.setLineWidth(outerLineWidth)
+            ctx.strokePath()
+            
+            // Отключаем тень для внутреннего кольца
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        }
         
         // Внутреннее кольцо
         let innerInset: CGFloat = 8
@@ -488,26 +552,32 @@ final class HighlightView: NSView {
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
         let cornerRadius = size / 2 // Максимальное скругление для круга
         
-        // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowBrightness = CursorSettings.shared.shadowBrightness
-        if shadowBrightness > 0 {
-            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-            ctx.setShadow(
-                offset: CGSize(width: 0, height: 0),
-                blur: 15.0, // Радиус размытия для легкой подсветки
-                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
-            )
-        }
-        
         // Внешнее кольцо
         let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
-        ctx.addPath(outerPath)
-        ctx.setStrokeColor(base.cgColor)
-        ctx.setLineWidth(outerLineWidth)
-        ctx.strokePath()
         
-        // Отключаем тень для внутреннего кольца
-        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        if isGlowEnabled() {
+            // Если включен режим свечения, используем эффект как у карандаша
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else {
+            // Настраиваем тень для легкой подсветки внешнего контура
+            let shadowBrightness = CursorSettings.shared.shadowBrightness
+            if shadowBrightness > 0 {
+                let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+                ctx.setShadow(
+                    offset: CGSize(width: 0, height: 0),
+                    blur: 15.0, // Радиус размытия для легкой подсветки
+                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                )
+            }
+            
+            ctx.addPath(outerPath)
+            ctx.setStrokeColor(base.cgColor)
+            ctx.setLineWidth(outerLineWidth)
+            ctx.strokePath()
+            
+            // Отключаем тень для внутреннего кольца
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        }
         
         // Внутреннее кольцо
         let innerInset: CGFloat = 8
@@ -521,26 +591,32 @@ final class HighlightView: NSView {
         let radius = size / 2 * 1.2
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
         
-        // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowBrightness = CursorSettings.shared.shadowBrightness
-        if shadowBrightness > 0 {
-            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-            ctx.setShadow(
-                offset: CGSize(width: 0, height: 0),
-                blur: 15.0, // Радиус размытия для легкой подсветки
-                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
-            )
-        }
-        
         // Внешний шестиугольник
         let outerPath = createRoundedHexagonPath(radius: radius, cornerRadius: cornerRadius)
-        ctx.addPath(outerPath)
-        ctx.setStrokeColor(base.cgColor)
-        ctx.setLineWidth(outerLineWidth)
-        ctx.strokePath()
         
-        // Отключаем тень для внутреннего кольца
-        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        if isGlowEnabled() {
+            // Если включен режим свечения, используем эффект как у карандаша
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else {
+            // Настраиваем тень для легкой подсветки внешнего контура
+            let shadowBrightness = CursorSettings.shared.shadowBrightness
+            if shadowBrightness > 0 {
+                let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+                ctx.setShadow(
+                    offset: CGSize(width: 0, height: 0),
+                    blur: 15.0, // Радиус размытия для легкой подсветки
+                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                )
+            }
+            
+            ctx.addPath(outerPath)
+            ctx.setStrokeColor(base.cgColor)
+            ctx.setLineWidth(outerLineWidth)
+            ctx.strokePath()
+            
+            // Отключаем тень для внутреннего кольца
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        }
         
         // Внутренний шестиугольник
         let innerInset: CGFloat = 8
@@ -598,26 +674,32 @@ final class HighlightView: NSView {
         let radius = size / 2 * 1.2
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
         
-        // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowBrightness = CursorSettings.shared.shadowBrightness
-        if shadowBrightness > 0 {
-            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-            ctx.setShadow(
-                offset: CGSize(width: 0, height: 0),
-                blur: 15.0, // Радиус размытия для легкой подсветки
-                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
-            )
-        }
-        
         // Внешний треугольник
         let outerPath = createRoundedTrianglePath(radius: radius, cornerRadius: cornerRadius)
-        ctx.addPath(outerPath)
-        ctx.setStrokeColor(base.cgColor)
-        ctx.setLineWidth(outerLineWidth)
-        ctx.strokePath()
         
-        // Отключаем тень для внутреннего кольца
-        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        if isGlowEnabled() {
+            // Если включен режим свечения, используем эффект как у карандаша
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else {
+            // Настраиваем тень для легкой подсветки внешнего контура
+            let shadowBrightness = CursorSettings.shared.shadowBrightness
+            if shadowBrightness > 0 {
+                let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+                ctx.setShadow(
+                    offset: CGSize(width: 0, height: 0),
+                    blur: 15.0, // Радиус размытия для легкой подсветки
+                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                )
+            }
+            
+            ctx.addPath(outerPath)
+            ctx.setStrokeColor(base.cgColor)
+            ctx.setLineWidth(outerLineWidth)
+            ctx.strokePath()
+            
+            // Отключаем тень для внутреннего кольца
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        }
         
         // Внутренний треугольник
         let innerInset: CGFloat = 8
@@ -676,26 +758,32 @@ final class HighlightView: NSView {
         let radius = size / 2 * 1.2
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
         
-        // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowBrightness = CursorSettings.shared.shadowBrightness
-        if shadowBrightness > 0 {
-            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-            ctx.setShadow(
-                offset: CGSize(width: 0, height: 0),
-                blur: 15.0, // Радиус размытия для легкой подсветки
-                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
-            )
-        }
-        
         // Внешний пятиугольник
         let outerPath = createRoundedPentagonPath(radius: radius, cornerRadius: cornerRadius)
-        ctx.addPath(outerPath)
-        ctx.setStrokeColor(base.cgColor)
-        ctx.setLineWidth(outerLineWidth)
-        ctx.strokePath()
         
-        // Отключаем тень для внутреннего кольца
-        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        if isGlowEnabled() {
+            // Если включен режим свечения, используем эффект как у карандаша
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else {
+            // Настраиваем тень для легкой подсветки внешнего контура
+            let shadowBrightness = CursorSettings.shared.shadowBrightness
+            if shadowBrightness > 0 {
+                let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+                ctx.setShadow(
+                    offset: CGSize(width: 0, height: 0),
+                    blur: 15.0, // Радиус размытия для легкой подсветки
+                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                )
+            }
+            
+            ctx.addPath(outerPath)
+            ctx.setStrokeColor(base.cgColor)
+            ctx.setLineWidth(outerLineWidth)
+            ctx.strokePath()
+            
+            // Отключаем тень для внутреннего кольца
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        }
         
         // Внутренний пятиугольник
         let innerInset: CGFloat = 8
@@ -755,26 +843,32 @@ final class HighlightView: NSView {
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
         let cornerRadius = size / 2.7
         
-        // Настраиваем тень для легкой подсветки внешнего контура
-        let shadowBrightness = CursorSettings.shared.shadowBrightness
-        if shadowBrightness > 0 {
-            let shadowColor = CursorSettings.shared.effectiveShadowColor.color
-            ctx.setShadow(
-                offset: CGSize(width: 0, height: 0),
-                blur: 15.0, // Радиус размытия для легкой подсветки
-                color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
-            )
-        }
-        
         // Внешнее кольцо
         let outerPath = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
-        ctx.addPath(outerPath)
-        ctx.setStrokeColor(base.cgColor)
-        ctx.setLineWidth(outerLineWidth)
-        ctx.strokePath()
         
-        // Отключаем тень для внутреннего кольца
-        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        if isGlowEnabled() {
+            // Если включен режим свечения, используем эффект как у карандаша
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+        } else {
+            // Настраиваем тень для легкой подсветки внешнего контура
+            let shadowBrightness = CursorSettings.shared.shadowBrightness
+            if shadowBrightness > 0 {
+                let shadowColor = CursorSettings.shared.effectiveShadowColor.color
+                ctx.setShadow(
+                    offset: CGSize(width: 0, height: 0),
+                    blur: 15.0, // Радиус размытия для легкой подсветки
+                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                )
+            }
+            
+            ctx.addPath(outerPath)
+            ctx.setStrokeColor(base.cgColor)
+            ctx.setLineWidth(outerLineWidth)
+            ctx.strokePath()
+            
+            // Отключаем тень для внутреннего кольца
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        }
         
         // Внутреннее кольцо
         let innerInset: CGFloat = 8

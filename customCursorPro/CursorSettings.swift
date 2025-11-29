@@ -10,6 +10,7 @@ enum CursorColor: String, CaseIterable {
     case yellow = "yellow"
     case green = "green"
     case cyan = "cyan"
+    case glowing = "glowing"
     
     var displayName: String {
         switch self {
@@ -22,6 +23,7 @@ enum CursorColor: String, CaseIterable {
         case .yellow: return "Жёлтый"
         case .green: return "Зелёный"
         case .cyan: return "Голубой"
+        case .glowing: return "Светящийся"
         }
     }
     
@@ -36,6 +38,7 @@ enum CursorColor: String, CaseIterable {
         case .yellow: return .systemYellow
         case .green: return .systemGreen
         case .cyan: return NSColor(red: 0.0, green: 0.8, blue: 1.0, alpha: 1.0)
+        case .glowing: return NSColor(red: 0.4, green: 0.9, blue: 1.0, alpha: 1.0) // Яркий неоновый циан
         }
     }
 }
@@ -138,6 +141,7 @@ class CursorSettings {
     private let shadowColorKey = "cursorShadowColor"
     private let shadowBrightnessKey = "cursorShadowBrightness"
     private let hideWhenInactiveKey = "hideWhenInactive"
+    private let cursorGlowEnabledKey = "cursorGlowEnabled"
     
     var menuTheme: MenuTheme {
         get {
@@ -374,6 +378,20 @@ class CursorSettings {
         }
     }
     
+    var cursorGlowEnabled: Bool {
+        get {
+            // Проверяем, установлено ли значение (по умолчанию false)
+            if UserDefaults.standard.object(forKey: cursorGlowEnabledKey) != nil {
+                return UserDefaults.standard.bool(forKey: cursorGlowEnabledKey)
+            }
+            return false // По умолчанию выключено
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: cursorGlowEnabledKey)
+            NotificationCenter.default.post(name: .cursorGlowEnabledChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -394,6 +412,7 @@ extension Notification.Name {
     static let cursorShadowColorChanged = Notification.Name("cursorShadowColorChanged")
     static let cursorShadowBrightnessChanged = Notification.Name("cursorShadowBrightnessChanged")
     static let hideWhenInactiveChanged = Notification.Name("hideWhenInactiveChanged")
+    static let cursorGlowEnabledChanged = Notification.Name("cursorGlowEnabledChanged")
     static let cursorPositionUpdate = Notification.Name("cursorPositionUpdate")
 }
 

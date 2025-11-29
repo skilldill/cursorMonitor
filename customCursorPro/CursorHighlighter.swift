@@ -24,6 +24,19 @@ final class CursorHighlighter {
         return CursorSettings.shared.size.diameter
     }
     
+    // Вычисляет размер окна с учетом тени (если включен режим свечения)
+    private func calculateWindowSize(withGlow: Bool) -> CGFloat {
+        let baseSize = diameter
+        if withGlow && CursorSettings.shared.cursorGlowEnabled {
+            // Радиус размытия тени = outerLineWidth * 2.5
+            let blurRadius = CursorSettings.shared.outerLineWidth * 2.5
+            // Добавляем тень с каждой стороны (blurRadius * 2) + дополнительный запас для безопасности
+            let padding: CGFloat = blurRadius * 2 + 20 // Увеличиваем запас, чтобы тень точно не обрезалась
+            return baseSize + padding
+        }
+        return baseSize
+    }
+    
     // Размер окна для режима карандаша (радиус * 2 + небольшой отступ для обводки)
     private var pencilWindowSize: CGFloat {
         let lineWidth = CursorSettings.shared.pencilLineWidth
@@ -104,6 +117,12 @@ final class CursorHighlighter {
             self,
             selector: #selector(cursorPositionUpdate),
             name: .cursorPositionUpdate,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(cursorGlowEnabledChanged),
+            name: .cursorGlowEnabledChanged,
             object: nil
         )
     }
@@ -249,11 +268,12 @@ final class CursorHighlighter {
         }
 
         let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
+        let windowSize = calculateWindowSize(withGlow: true)
         let initialRect = NSRect(
-            x: screenFrame.midX - diameter / 2,
-            y: screenFrame.midY - diameter / 2,
-            width: diameter,
-            height: diameter
+            x: screenFrame.midX - windowSize / 2,
+            y: screenFrame.midY - windowSize / 2,
+            width: windowSize,
+            height: windowSize
         )
 
         // ВАЖНО: используем NSPanel, а не NSWindow
@@ -283,8 +303,11 @@ final class CursorHighlighter {
             .ignoresCycle         // не мешает cmd+`
         ]
 
-        let view = HighlightView(frame: NSRect(x: 0, y: 0, width: diameter, height: diameter))
+        let viewSize = calculateWindowSize(withGlow: true)
+        let view = HighlightView(frame: NSRect(x: 0, y: 0, width: viewSize, height: viewSize))
         view.wantsLayer = true
+        // Отключаем обрезку содержимого, чтобы тень не обрезалась
+        view.layer?.masksToBounds = false
         view.layer?.opacity = Float(CursorSettings.shared.opacity)
         view.baseColor = CursorSettings.shared.color.color
         view.clickColor = CursorSettings.shared.clickColor.color
@@ -300,7 +323,7 @@ final class CursorHighlighter {
 
         self.window = panel
         self.highlightView = view
-        // Сохраняем оригинальный размер окна
+        // Сохраняем оригинальный размер окна (базовый размер без тени)
         self.originalWindowSize = diameter
     }
 
@@ -720,8 +743,8 @@ final class CursorHighlighter {
         
         // Переключаем курсор в режим карандаша
         if let window = window, let highlightView = highlightView {
-            // Сохраняем оригинальный размер
-            originalWindowSize = window.frame.width
+            // Сохраняем оригинальный размер (базовый размер без тени)
+            originalWindowSize = diameter
             
             // Устанавливаем режим карандаша
             highlightView.isPencilMode = true
@@ -760,18 +783,17 @@ final class CursorHighlighter {
             // Выключаем режим карандаша
             highlightView.isPencilMode = false
             
-            // Восстанавливаем оригинальный размер окна
-            if originalWindowSize > 0 {
-                let currentPos = NSEvent.mouseLocation
-                let newOrigin = NSPoint(
-                    x: currentPos.x - originalWindowSize / 2,
-                    y: currentPos.y - originalWindowSize / 2
-                )
-                window.setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: originalWindowSize, height: originalWindowSize), display: true)
-                // Восстанавливаем размер view
-                highlightView.frame = NSRect(x: 0, y: 0, width: originalWindowSize, height: originalWindowSize)
-                highlightView.needsDisplay = true
-            }
+            // Восстанавливаем оригинальный размер окна с учетом тени
+            let restoredSize = calculateWindowSize(withGlow: true)
+            let currentPos = NSEvent.mouseLocation
+            let newOrigin = NSPoint(
+                x: currentPos.x - restoredSize / 2,
+                y: currentPos.y - restoredSize / 2
+            )
+            window.setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: restoredSize, height: restoredSize), display: true)
+            // Восстанавливаем размер view
+            highlightView.frame = NSRect(x: 0, y: 0, width: restoredSize, height: restoredSize)
+            highlightView.needsDisplay = true
         }
         
         // Показываем курсор снова
@@ -801,30 +823,30 @@ final class CursorHighlighter {
         let location = NSEvent.mouseLocation
         
         // Определяем размер окна в зависимости от режима карандаша
-        let windowSize: CGFloat
+        let currentWindowSize: CGFloat
         if highlightView?.isPencilMode == true {
-            windowSize = pencilWindowSize // Размер для режима карандаша (зависит от толщины)
+            currentWindowSize = pencilWindowSize // Размер для режима карандаша (зависит от толщины)
         } else {
-            windowSize = diameter // Обычный размер
+            currentWindowSize = calculateWindowSize(withGlow: true) // Обычный размер с учетом тени
         }
         
-        // Обновляем размер окна, если он изменился (например, при переключении режима)
-        if window.frame.width != windowSize {
+        // Обновляем размер окна, если он изменился (например, при переключении режима или включении свечения)
+        if window.frame.width != currentWindowSize {
             let newOrigin = NSPoint(
-                x: location.x - windowSize / 2,
-                y: location.y - windowSize / 2
+                x: location.x - currentWindowSize / 2,
+                y: location.y - currentWindowSize / 2
             )
-            window.setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: windowSize, height: windowSize), display: true)
+            window.setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: currentWindowSize, height: currentWindowSize), display: true)
             // Обновляем размер view
             if let highlightView = highlightView {
-                highlightView.frame = NSRect(x: 0, y: 0, width: windowSize, height: windowSize)
+                highlightView.frame = NSRect(x: 0, y: 0, width: currentWindowSize, height: currentWindowSize)
                 highlightView.needsDisplay = true
             }
         } else {
             // Просто обновляем позицию
             let newOrigin = NSPoint(
-                x: location.x - windowSize / 2,
-                y: location.y - windowSize / 2
+                x: location.x - currentWindowSize / 2,
+                y: location.y - currentWindowSize / 2
             )
             window.setFrameOrigin(newOrigin)
         }
@@ -915,6 +937,30 @@ final class CursorHighlighter {
     @objc private func cursorPositionUpdate() {
         // Обновляем позицию курсора при рисовании правой кнопкой мыши
         updatePositionToMouse()
+    }
+    
+    @objc private func cursorGlowEnabledChanged() {
+        // При изменении режима свечения нужно обновить размер окна
+        if isRunning {
+            // Сохраняем состояние режима карандаша
+            let wasPencilMode = highlightView?.isPencilMode ?? false
+            
+            // Закрываем старое окно
+            window?.orderOut(nil)
+            window = nil
+            highlightView = nil
+            
+            // Пересоздаём окно с новым размером
+            createWindowIfNeeded()
+            
+            // Восстанавливаем режим карандаша, если он был активен
+            if wasPencilMode {
+                highlightView?.isPencilMode = true
+                highlightView?.pencilModeColor = CursorSettings.shared.pencilColor.color
+            }
+            
+            updatePositionToMouse()
+        }
     }
     
     private func showPencilSettingsPanel() {

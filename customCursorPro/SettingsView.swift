@@ -9,6 +9,19 @@ struct SettingsView: View {
     @State private var previewSize: CGFloat = CursorSettings.shared.size.diameter
     @State private var notificationObservers: [NSObjectProtocol] = []
     
+    // Вычисляет размер превью с учетом тени (если включен режим свечения)
+    private func calculatePreviewSize() -> CGFloat {
+        let baseSize = CursorSettings.shared.size.diameter
+        if CursorSettings.shared.cursorGlowEnabled {
+            // Радиус размытия тени = outerLineWidth * 2.5
+            let blurRadius = CursorSettings.shared.outerLineWidth * 2.5
+            // Добавляем тень с каждой стороны (blurRadius * 2) + дополнительный запас для безопасности
+            let padding: CGFloat = blurRadius * 2 + 20
+            return baseSize + padding
+        }
+        return baseSize
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -62,10 +75,10 @@ struct SettingsView: View {
                     baseColor: previewBaseColor,
                     clickColor: previewClickColor,
                     opacity: previewOpacity,
-                    size: previewSize
+                    size: calculatePreviewSize()
                 )
-                .frame(width: previewSize, height: previewSize)
-                .id(previewSize) // Force update on size change
+                .frame(width: calculatePreviewSize(), height: calculatePreviewSize())
+                .id("\(previewSize)-\(CursorSettings.shared.cursorGlowEnabled)") // Force update on size or glow change
             }
         }
         .onAppear {
@@ -194,6 +207,14 @@ struct SettingsView: View {
                     ))
                     .toggleStyle(.switch)
                 }
+                
+                SettingRow(label: "Glow Effect:") {
+                    Toggle("", isOn: Binding(
+                        get: { CursorSettings.shared.cursorGlowEnabled },
+                        set: { CursorSettings.shared.cursorGlowEnabled = $0 }
+                    ))
+                    .toggleStyle(.switch)
+                }
             }
             .padding(16)
             .background(
@@ -308,7 +329,23 @@ struct SettingsView: View {
             settings.objectWillChange.send()
         }
         
-        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9]
+        let observer10 = NotificationCenter.default.addObserver(
+            forName: .cursorGlowEnabledChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            settings.objectWillChange.send()
+        }
+        
+        let observer11 = NotificationCenter.default.addObserver(
+            forName: .outerLineWidthChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            settings.objectWillChange.send()
+        }
+        
+        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11]
     }
     
     private func removeNotifications() {
@@ -475,6 +512,8 @@ struct HighlightViewRepresentable: NSViewRepresentable {
     
     func makeNSView(context: Context) -> HighlightView {
         let view = HighlightView(frame: NSRect(x: 0, y: 0, width: size, height: size))
+        view.wantsLayer = true
+        view.layer?.masksToBounds = false // Отключаем обрезку для тени
         view.baseColor = baseColor
         view.clickColor = clickColor
         view.opacity = opacity
@@ -495,9 +534,9 @@ struct HighlightViewRepresentable: NSViewRepresentable {
         nsView.clickColor = clickColor
         nsView.opacity = opacity
         
-        let newSize = CursorSettings.shared.size.diameter
-        if nsView.frame.width != newSize || nsView.frame.height != newSize {
-            nsView.frame = NSRect(x: 0, y: 0, width: newSize, height: newSize)
+        // Используем переданный размер (уже с учетом тени)
+        if nsView.frame.width != size || nsView.frame.height != size {
+            nsView.frame = NSRect(x: 0, y: 0, width: size, height: size)
         }
         
         nsView.needsDisplay = true
