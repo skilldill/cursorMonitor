@@ -547,8 +547,11 @@ final class CursorHighlighter {
         guard let menuWindow = menuWindow else { return }
         
         // Позиционируем меню справа от курсора (горизонтальная раскладка)
-        let menuWidth: CGFloat = 320
+        let menuWidth: CGFloat = 176
         let menuHeight: CGFloat = 80
+        let shadowPadding: CGFloat = 20 // Отступ для тени
+        let totalWidth = menuWidth + shadowPadding * 2
+        let totalHeight = menuHeight + shadowPadding * 2
         
         // NSEvent.mouseLocation и setFrameOrigin используют одну систему координат:
         // (0,0) находится в левом нижнем углу основного экрана
@@ -571,10 +574,14 @@ final class CursorHighlighter {
         if let screen = targetScreen {
             let screenFrame = screen.frame
             
+            // Учитываем shadowPadding при позиционировании
+            menuX -= shadowPadding
+            menuY -= shadowPadding
+            
             // Проверяем, не выходит ли меню за правый край экрана
-            if menuX + menuWidth > screenFrame.maxX {
+            if menuX + totalWidth > screenFrame.maxX {
                 // Если выходит, показываем слева от курсора
-                menuX = currentPos.x - menuWidth - menuOffset
+                menuX = currentPos.x - totalWidth - menuOffset + shadowPadding
             }
             
             // Проверяем, не выходит ли меню за левый край экрана
@@ -583,8 +590,8 @@ final class CursorHighlighter {
             }
             
             // Проверяем, не выходит ли меню за верхний край экрана
-            if menuY + menuHeight > screenFrame.maxY {
-                menuY = screenFrame.maxY - menuHeight - 10
+            if menuY + totalHeight > screenFrame.maxY {
+                menuY = screenFrame.maxY - totalHeight - 10
             }
             
             // Проверяем, не выходит ли меню за нижний край экрана
@@ -594,7 +601,7 @@ final class CursorHighlighter {
         }
         
         menuWindow.setFrame(
-            NSRect(x: menuX, y: menuY, width: menuWidth, height: menuHeight),
+            NSRect(x: menuX, y: menuY, width: totalWidth, height: totalHeight),
             display: true
         )
         menuWindow.orderFrontRegardless()
@@ -649,9 +656,10 @@ final class CursorHighlighter {
     private func createMenuWindow() {
         let menuWidth: CGFloat = 176 // Уменьшили ширину, так как теперь 2 кнопки вместо 3
         let menuHeight: CGFloat = 80
+        let shadowPadding: CGFloat = 20 // Отступ для тени
         
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: menuWidth, height: menuHeight),
+            contentRect: NSRect(x: 0, y: 0, width: menuWidth + shadowPadding * 2, height: menuHeight + shadowPadding * 2),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -672,7 +680,11 @@ final class CursorHighlighter {
             .ignoresCycle
         ]
         
-        let menuView = MenuViewWrapper(frame: NSRect(x: 0, y: 0, width: menuWidth, height: menuHeight))
+        // Убеждаемся, что contentView не обрезает тень
+        panel.contentView?.wantsLayer = true
+        panel.contentView?.layer?.masksToBounds = false
+        
+        let menuView = MenuViewWrapper(frame: NSRect(x: shadowPadding, y: shadowPadding, width: menuWidth, height: menuHeight))
         
         // Устанавливаем обработчики для кнопок меню
         menuView.onPencilClick = { [weak self] in
@@ -683,7 +695,8 @@ final class CursorHighlighter {
             // Здесь можно добавить дополнительную логику, если нужно
         }
         
-        panel.contentView = menuView
+        panel.contentView = NSView(frame: panel.contentView!.bounds)
+        panel.contentView?.addSubview(menuView)
         self.menuWindow = panel
         self.menuView = menuView
     }

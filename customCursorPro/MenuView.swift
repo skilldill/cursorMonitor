@@ -103,6 +103,9 @@ struct VisualEffectView: NSViewRepresentable {
 // Обертка для использования в AppKit
 class MenuViewWrapper: NSView {
     private var hostingView: NSHostingView<MenuViewSwiftUI>?
+    private var isDragging = false
+    private var dragStartLocation: NSPoint = .zero
+    private var windowStartFrame: NSRect = .zero
     
     var onPencilClick: (() -> Void)? {
         didSet {
@@ -129,6 +132,14 @@ class MenuViewWrapper: NSView {
     private func setupView() {
         wantsLayer = true
         layer?.cornerRadius = 16
+        layer?.masksToBounds = false // Не обрезаем тень
+        
+        // Убеждаемся, что contentView не обрезает тень
+        if let contentView = superview {
+            contentView.wantsLayer = true
+            contentView.layer?.masksToBounds = false
+        }
+        
         updateHostingView()
         
         // Подписываемся на изменения темы
@@ -169,5 +180,62 @@ class MenuViewWrapper: NSView {
     override func resizeSubviews(withOldSize oldSize: NSSize) {
         super.resizeSubviews(withOldSize: oldSize)
         hostingView?.frame = bounds
+    }
+    
+    // MARK: - Drag and Drop
+    
+    override func mouseDown(with event: NSEvent) {
+        // Проверяем, не кликнули ли на кнопку
+        let location = convert(event.locationInWindow, from: nil)
+        
+        // Если клик не на кнопке, начинаем перетаскивание
+        if !isPointOnButton(location) {
+            isDragging = true
+            dragStartLocation = NSEvent.mouseLocation // Используем глобальные координаты
+            if let window = window {
+                windowStartFrame = window.frame
+            }
+        }
+    }
+    
+    override func mouseDragged(with event: NSEvent) {
+        guard isDragging, let window = window else { return }
+        
+        let currentLocation = NSEvent.mouseLocation // Используем глобальные координаты
+        let deltaX = currentLocation.x - dragStartLocation.x
+        let deltaY = currentLocation.y - dragStartLocation.y
+        
+        var newFrame = windowStartFrame
+        newFrame.origin.x += deltaX
+        newFrame.origin.y += deltaY
+        
+        // Ограничиваем перемещение границами всех экранов
+        var screenFrame = NSScreen.main?.visibleFrame ?? NSRect.zero
+        for screen in NSScreen.screens {
+            screenFrame = screenFrame.union(screen.visibleFrame)
+        }
+        
+        newFrame.origin.x = max(screenFrame.minX, min(newFrame.origin.x, screenFrame.maxX - newFrame.width))
+        newFrame.origin.y = max(screenFrame.minY, min(newFrame.origin.y, screenFrame.maxY - newFrame.height))
+        
+        window.setFrame(newFrame, display: true)
+        
+        // Обновляем позицию курсора при перетаскивании меню
+        NotificationCenter.default.post(name: .cursorPositionUpdate, object: nil)
+        
+        // Обновляем начальную позицию для следующего движения
+        dragStartLocation = currentLocation
+        windowStartFrame = newFrame
+    }
+    
+    override func mouseUp(with event: NSEvent) {
+        isDragging = false
+    }
+    
+    private func isPointOnButton(_ point: NSPoint) -> Bool {
+        // Проверяем, находится ли точка в области кнопок
+        // Кнопки находятся в центре view с отступом 16 пикселей с каждой стороны
+        let buttonArea = bounds.insetBy(dx: 16, dy: 16)
+        return buttonArea.contains(point)
     }
 }
