@@ -1,55 +1,150 @@
+import SwiftUI
 import Cocoa
 
-final class MenuView: NSView {
+struct MenuViewSwiftUI: View {
+    @ObservedObject private var settings = CursorSettingsObservable()
+    @State private var trailEnabled = CursorSettings.shared.cursorTrailEnabled
     
-    // Обработчики кликов
-    var onViewNotesClick: (() -> Void)?
     var onCalculatorClick: (() -> Void)?
-    var onCreateNote: (() -> Void)?
     var onPencilClick: (() -> Void)?
+    var onTrailToggle: (() -> Void)?
     
-    private var viewNotesButton: NSButton?
-    private var calculatorButton: NSButton?
-    private var createNoteButton: NSButton?
-    private var pencilButton: NSButton?
+    var body: some View {
+        HStack(spacing: 12) {
+            // Кнопка калькулятора
+            MenuButton(
+                icon: "function",
+                action: {
+                    onCalculatorClick?()
+                }
+            )
+            
+            // Кнопка карандаша
+            MenuButton(
+                icon: "pencil.tip",
+                action: {
+                    onPencilClick?()
+                }
+            )
+            
+            // Кнопка следа
+            MenuButton(
+                icon: "sparkles",
+                opacity: trailEnabled ? 1.0 : 0.5,
+                action: {
+                    let newValue = !CursorSettings.shared.cursorTrailEnabled
+                    CursorSettings.shared.cursorTrailEnabled = newValue
+                    trailEnabled = newValue
+                    onTrailToggle?()
+                }
+            )
+        }
+        .padding(16)
+        .background(
+            VisualEffectView(material: settings.isDark ? .hudWindow : .light)
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(settings.isDark ? 0.3 : 0.15), radius: 10, x: 0, y: -2)
+        )
+        .frame(width: 240, height: 80)
+        .onReceive(NotificationCenter.default.publisher(for: .cursorTrailEnabledChanged)) { _ in
+            trailEnabled = CursorSettings.shared.cursorTrailEnabled
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .menuThemeChanged)) { _ in
+            // Обновляем view при изменении темы
+        }
+    }
+}
+
+struct MenuButton: View {
+    let icon: String
+    var opacity: CGFloat = 1.0
+    let action: () -> Void
     
-    private var visualEffectView: NSVisualEffectView?
+    @State private var isHovered = false
+    @ObservedObject private var settings = CursorSettingsObservable()
+    
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundColor(settings.isDark ? .primary : Color(white: 0.1))
+                .frame(width: 48, height: 48)
+                .background(
+                    Circle()
+                        .fill(
+                            isHovered
+                                ? (settings.isDark 
+                                    ? Color.white.opacity(0.2) 
+                                    : Color.black.opacity(0.2))
+                                : (settings.isDark 
+                                    ? Color.white.opacity(0.1) 
+                                    : Color.black.opacity(0.1))
+                        )
+                )
+                .opacity(opacity)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+    }
+}
+
+// NSVisualEffectView wrapper для SwiftUI
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+    }
+}
+
+// Обертка для использования в AppKit
+class MenuViewWrapper: NSView {
+    private var hostingView: NSHostingView<MenuViewSwiftUI>?
+    
+    var onCalculatorClick: (() -> Void)? {
+        didSet {
+            updateHostingView()
+        }
+    }
+    
+    var onPencilClick: (() -> Void)? {
+        didSet {
+            updateHostingView()
+        }
+    }
+    
+    var onTrailToggle: (() -> Void)? {
+        didSet {
+            updateHostingView()
+        }
+    }
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        commonInit()
+        setupView()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        commonInit()
+        setupView()
     }
     
-    private func commonInit() {
+    private func setupView() {
         wantsLayer = true
-        
-        // Создаем NSVisualEffectView для blur эффекта
-        let effectView = NSVisualEffectView(frame: bounds)
-        effectView.material = .hudWindow // Современный материал с blur
-        effectView.blendingMode = .behindWindow
-        effectView.state = .active
-        effectView.wantsLayer = true
-        effectView.layer?.cornerRadius = 16
-        effectView.layer?.masksToBounds = true
-        
-        // Добавляем легкую тень
-        effectView.shadow = NSShadow()
-        effectView.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.3)
-        effectView.shadow?.shadowOffset = NSSize(width: 0, height: -2)
-        effectView.shadow?.shadowBlurRadius = 10
-        
-        addSubview(effectView)
-        visualEffectView = effectView
-        
         layer?.cornerRadius = 16
-        
-        setupButtons()
-        applyTheme()
+        updateHostingView()
         
         // Подписываемся на изменения темы
         NotificationCenter.default.addObserver(
@@ -60,250 +155,35 @@ final class MenuView: NSView {
         )
     }
     
+    @objc private func themeChanged() {
+        updateHostingView()
+    }
+    
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
     
-    @objc private func themeChanged() {
-        applyTheme()
-    }
-    
-    private func applyTheme() {
-        let theme = CursorSettings.shared.menuTheme
+    private func updateHostingView() {
+        // Удаляем старый view
+        hostingView?.removeFromSuperview()
         
-        switch theme {
-        case .dark:
-            // Тёмная тема
-            visualEffectView?.material = .hudWindow
-            visualEffectView?.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.3)
-            layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.1).cgColor
-            
-            // Обновляем кнопки для тёмной темы
-            updateButtonsTheme(isDark: true)
-            
-        case .light:
-            // Светлая тема
-            visualEffectView?.material = .light
-            visualEffectView?.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.15)
-            layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.05).cgColor
-            
-            // Обновляем кнопки для светлой темы
-            updateButtonsTheme(isDark: false)
-        }
+        // Создаем новый SwiftUI view
+        let menuView = MenuViewSwiftUI(
+            onCalculatorClick: onCalculatorClick,
+            onPencilClick: onPencilClick,
+            onTrailToggle: onTrailToggle
+        )
         
-        needsDisplay = true
-    }
-    
-    private func updateButtonsTheme(isDark: Bool) {
-        let buttons = [createNoteButton, viewNotesButton, calculatorButton, pencilButton].compactMap { $0 }
+        let hostingView = NSHostingView(rootView: menuView)
+        hostingView.frame = bounds
+        hostingView.autoresizingMask = [.width, .height]
         
-        for button in buttons {
-            if let hoverButton = button as? HoverButton {
-                hoverButton.isDarkTheme = isDark
-                hoverButton.updateTheme()
-            }
-            // Обновляем цвет иконок
-            button.contentTintColor = isDark ? .labelColor : NSColor(white: 0.1, alpha: 1.0)
-        }
+        addSubview(hostingView)
+        self.hostingView = hostingView
     }
     
     override func resizeSubviews(withOldSize oldSize: NSSize) {
         super.resizeSubviews(withOldSize: oldSize)
-        visualEffectView?.frame = bounds
-    }
-    
-    private func setupButtons() {
-        let buttonSize: CGFloat = 48
-        let buttonSpacing: CGFloat = 12
-        let padding: CGFloat = 16
-        
-        // Горизонтальная раскладка (flex)
-        let buttonConfigs: [(icon: String, action: Selector)] = [
-            ("square.and.pencil", #selector(createNoteButtonClicked)),
-            ("note.text", #selector(viewNotesButtonClicked)),
-            ("function", #selector(calculatorButtonClicked)),
-            ("pencil.tip", #selector(pencilButtonClicked))
-        ]
-        
-        let totalWidth = CGFloat(buttonConfigs.count) * buttonSize + CGFloat(buttonConfigs.count - 1) * buttonSpacing + padding * 2
-        let startX = (bounds.width - totalWidth) / 2 + padding
-        let centerY = bounds.midY - buttonSize / 2
-        
-        var currentX = startX
-        
-        for (index, config) in buttonConfigs.enumerated() {
-            let button = createIconButton(
-                iconName: config.icon,
-                frame: NSRect(x: currentX, y: centerY, width: buttonSize, height: buttonSize),
-                action: config.action
-            )
-            addSubview(button)
-            
-            // Присваиваем кнопку соответствующему свойству по индексу
-            switch index {
-            case 0:
-                createNoteButton = button
-            case 1:
-                viewNotesButton = button
-            case 2:
-                calculatorButton = button
-            case 3:
-                pencilButton = button
-            default:
-                break
-            }
-            
-            currentX += buttonSize + buttonSpacing
-        }
-    }
-    
-    private func createIconButton(iconName: String, frame: NSRect, action: Selector) -> NSButton {
-        let button = HoverButton(frame: frame)
-        button.title = ""
-        button.target = self
-        button.action = action
-        button.bezelStyle = .texturedSquare
-        button.isBordered = false
-        
-        // Устанавливаем тему кнопки
-        button.isDarkTheme = CursorSettings.shared.menuTheme == .dark
-        
-        // Стилизация кнопки в стиле Tailwind
-        button.wantsLayer = true
-        button.layer?.cornerRadius = frame.width / 2 // Круглая кнопка
-        
-        // Иконка SF Symbols
-        if let iconImage = NSImage(systemSymbolName: iconName, accessibilityDescription: nil) {
-            iconImage.isTemplate = true
-            iconImage.size = NSSize(width: 24, height: 24)
-            button.image = iconImage
-            button.imagePosition = .imageOnly
-            // Устанавливаем контрастный цвет для светлой темы
-            let isDark = CursorSettings.shared.menuTheme == .dark
-            button.contentTintColor = isDark ? .labelColor : NSColor(white: 0.1, alpha: 1.0)
-        }
-        
-        button.updateTheme()
-        
-        return button
-    }
-    
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        // Рисование теперь обрабатывается через NSVisualEffectView
-    }
-    
-    @objc private func viewNotesButtonClicked() {
-        onViewNotesClick?()
-    }
-    
-    @objc private func calculatorButtonClicked() {
-        onCalculatorClick?()
-    }
-    
-    @objc private func createNoteButtonClicked() {
-        onCreateNote?()
-    }
-    
-    @objc private func pencilButtonClicked() {
-        onPencilClick?()
+        hostingView?.frame = bounds
     }
 }
-
-// Кастомный класс кнопки с hover эффектом
-class HoverButton: NSButton {
-    private var hoverView: NSView?
-    var isDarkTheme: Bool = true
-    
-    override func awakeFromNib() {
-        super.awakeFromNib()
-        setupHover()
-    }
-    
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setupHover()
-    }
-    
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupHover()
-    }
-    
-    func updateTheme() {
-        if isDarkTheme {
-            layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.1).cgColor
-        } else {
-            layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.1).cgColor
-        }
-        needsDisplay = true
-    }
-    
-    private func setupHover() {
-        let trackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(trackingArea)
-        
-        hoverView = NSView(frame: bounds)
-        hoverView?.wantsLayer = true
-        hoverView?.layer?.cornerRadius = bounds.width / 2 // Круглая для круглых кнопок
-        hoverView?.layer?.backgroundColor = NSColor.clear.cgColor
-        hoverView?.isHidden = true
-        addSubview(hoverView!)
-    }
-    
-    override func mouseEntered(with event: NSEvent) {
-        super.mouseEntered(with: event)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            context.allowsImplicitAnimation = true
-            hoverView?.isHidden = false
-            if isDarkTheme {
-                hoverView?.layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.15).cgColor
-                layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.2).cgColor
-            } else {
-                hoverView?.layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.15).cgColor
-                layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.2).cgColor
-            }
-        }
-    }
-    
-    override func mouseExited(with event: NSEvent) {
-        super.mouseExited(with: event)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            context.allowsImplicitAnimation = true
-            hoverView?.isHidden = true
-            hoverView?.layer?.backgroundColor = NSColor.clear.cgColor
-            if isDarkTheme {
-                layer?.backgroundColor = NSColor(white: 1.0, alpha: 0.1).cgColor
-            } else {
-                layer?.backgroundColor = NSColor(white: 0.0, alpha: 0.1).cgColor
-            }
-        }
-    }
-    
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        for trackingArea in trackingAreas {
-            removeTrackingArea(trackingArea)
-        }
-        let newTrackingArea = NSTrackingArea(
-            rect: bounds,
-            options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(newTrackingArea)
-    }
-    
-    override func resizeSubviews(withOldSize oldSize: NSSize) {
-        super.resizeSubviews(withOldSize: oldSize)
-        hoverView?.frame = bounds
-    }
-}
-

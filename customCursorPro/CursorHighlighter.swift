@@ -5,7 +5,7 @@ final class CursorHighlighter {
     private var window: NSWindow?
     private var highlightView: HighlightView?
     private var menuWindow: NSWindow?
-    private var menuView: MenuView?
+    private var menuView: MenuViewWrapper?
     private var noteInputWindow: NoteInputWindow?
     private var notesViewWindow: NotesViewWindow?
     private var drawingWindow: DrawingWindow?
@@ -647,7 +647,7 @@ final class CursorHighlighter {
     }
     
     private func createMenuWindow() {
-        let menuWidth: CGFloat = 320
+        let menuWidth: CGFloat = 240 // Уменьшили ширину, так как теперь 3 кнопки вместо 4
         let menuHeight: CGFloat = 80
         
         let panel = NSPanel(
@@ -672,21 +672,18 @@ final class CursorHighlighter {
             .ignoresCycle
         ]
         
-        let menuView = MenuView(frame: NSRect(x: 0, y: 0, width: menuWidth, height: menuHeight))
-        menuView.wantsLayer = true
+        let menuView = MenuViewWrapper(frame: NSRect(x: 0, y: 0, width: menuWidth, height: menuHeight))
         
         // Устанавливаем обработчики для кнопок меню
-        menuView.onViewNotesClick = { [weak self] in
-            self?.showNotesViewWindow()
-        }
         menuView.onCalculatorClick = { [weak self] in
             self?.openCalculator()
         }
-        menuView.onCreateNote = { [weak self] in
-            self?.showNoteInputWindow()
-        }
         menuView.onPencilClick = { [weak self] in
             self?.startPencil()
+        }
+        menuView.onTrailToggle = { [weak self] in
+            // Переключение уже произошло в SwiftUI view
+            // Здесь можно добавить дополнительную логику, если нужно
         }
         
         panel.contentView = menuView
