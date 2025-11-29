@@ -22,6 +22,7 @@ struct MenuViewSwiftUI: View {
             MenuButton(
                 icon: "waveform.path.ecg",
                 opacity: trailEnabled ? 1.0 : 0.5,
+                isActive: trailEnabled,
                 action: {
                     let newValue = !CursorSettings.shared.cursorTrailEnabled
                     CursorSettings.shared.cursorTrailEnabled = newValue
@@ -49,27 +50,39 @@ struct MenuViewSwiftUI: View {
 struct MenuButton: View {
     let icon: String
     var opacity: CGFloat = 1.0
+    var isActive: Bool = false
     let action: () -> Void
     
     @State private var isHovered = false
     @ObservedObject private var settings = CursorSettingsObservable()
     
+    // iOS зеленый цвет (#34C759)
+    private var iosGreen: Color {
+        Color(red: 52/255.0, green: 199/255.0, blue: 89/255.0)
+    }
+    
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 24))
-                .foregroundColor(settings.isDark ? .primary : Color(white: 0.1))
+                .foregroundColor(
+                    isActive 
+                        ? .white 
+                        : (settings.isDark ? .primary : Color(white: 0.1))
+                )
                 .frame(width: 48, height: 48)
                 .background(
                     Circle()
                         .fill(
-                            isHovered
-                                ? (settings.isDark 
-                                    ? Color.white.opacity(0.2) 
-                                    : Color.black.opacity(0.2))
-                                : (settings.isDark 
-                                    ? Color.white.opacity(0.1) 
-                                    : Color.black.opacity(0.1))
+                            isActive
+                                ? iosGreen
+                                : (isHovered
+                                    ? (settings.isDark 
+                                        ? Color.white.opacity(0.2) 
+                                        : Color.black.opacity(0.2))
+                                    : (settings.isDark 
+                                        ? Color.white.opacity(0.1) 
+                                        : Color.black.opacity(0.1)))
                         )
                 )
                 .opacity(opacity)
