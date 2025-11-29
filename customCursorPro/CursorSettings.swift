@@ -146,6 +146,7 @@ class CursorSettings {
     private let hideWhenInactiveKey = "hideWhenInactive"
     private let cursorGlowEnabledKey = "cursorGlowEnabled"
     private let cursorGradientEnabledKey = "cursorGradientEnabled"
+    private let cursorTrailEnabledKey = "cursorTrailEnabled"
     
     var menuTheme: MenuTheme {
         get {
@@ -414,6 +415,20 @@ class CursorSettings {
         }
     }
     
+    var cursorTrailEnabled: Bool {
+        get {
+            // Проверяем, установлено ли значение (по умолчанию false)
+            if UserDefaults.standard.object(forKey: cursorTrailEnabledKey) != nil {
+                return UserDefaults.standard.bool(forKey: cursorTrailEnabledKey)
+            }
+            return false // По умолчанию выключено
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: cursorTrailEnabledKey)
+            NotificationCenter.default.post(name: .cursorTrailEnabledChanged, object: nil)
+        }
+    }
+    
     private init() {}
 }
 
@@ -436,6 +451,7 @@ extension Notification.Name {
     static let hideWhenInactiveChanged = Notification.Name("hideWhenInactiveChanged")
     static let cursorGlowEnabledChanged = Notification.Name("cursorGlowEnabledChanged")
     static let cursorGradientEnabledChanged = Notification.Name("cursorGradientEnabledChanged")
+    static let cursorTrailEnabledChanged = Notification.Name("cursorTrailEnabledChanged")
     static let cursorPositionUpdate = Notification.Name("cursorPositionUpdate")
 }
 

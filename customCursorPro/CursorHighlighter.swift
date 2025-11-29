@@ -10,9 +10,12 @@ final class CursorHighlighter {
     private var notesViewWindow: NotesViewWindow?
     private var drawingWindow: DrawingWindow?
     private var pencilSettingsWindow: NSWindow?
+    private var trailWindow: TrailWindow?
     private var mouseMoveMonitor: Any?
     private var clickDownMonitor: Any?
     private var clickUpMonitor: Any?
+    private var leftMouseDraggedMonitor: Any?
+    private var isLeftButtonPressed = false
     private var rightClickDownMonitor: Any?
     private var rightClickUpMonitor: Any?
     private var middleButtonDownMonitor: Any?
@@ -125,6 +128,12 @@ final class CursorHighlighter {
             name: .cursorGlowEnabledChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(cursorTrailEnabledChanged),
+            name: .cursorTrailEnabledChanged,
+            object: nil
+        )
     }
     
     @objc private func sizeChanged() {
@@ -197,6 +206,10 @@ final class CursorHighlighter {
         isRunning = true
 
         createWindowIfNeeded()
+        // Создаем окно трека заранее, если режим трека включен
+        if CursorSettings.shared.cursorTrailEnabled {
+            createTrailWindowIfNeeded()
+        }
         startMonitoring()
     }
 
@@ -246,6 +259,8 @@ final class CursorHighlighter {
         menuWindow?.orderOut(nil)
         drawingWindow?.stopDrawing()
         pencilSettingsWindow?.orderOut(nil)
+        trailWindow?.endTrail()
+        trailWindow?.orderOut(nil)
         
         // Останавливаем таймер неактивности
         inactivityTimer?.invalidate()
@@ -362,6 +377,13 @@ final class CursorHighlighter {
             } else {
                 // Обычный клик - показываем визуальный эффект
                 self.highlightView?.beginClick()
+                
+                // Если включен режим трека, начинаем трек
+                if CursorSettings.shared.cursorTrailEnabled {
+                    self.isLeftButtonPressed = true
+                    let location = NSEvent.mouseLocation
+                    self.startTrail(at: location)
+                }
             }
             // Показываем курсор при клике
             if self.isFadingOut {
@@ -374,9 +396,28 @@ final class CursorHighlighter {
         clickUpMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseUp]
         ) { [weak self] _ in
-            self?.highlightView?.endClick()
+            guard let self = self else { return }
+            self.isLeftButtonPressed = false
+            self.highlightView?.endClick()
+            
+            // Завершаем трек если он был активен
+            if CursorSettings.shared.cursorTrailEnabled {
+                self.endTrail()
+            }
+            
             // Сбрасываем таймер при отпускании кнопки
-            self?.resetInactivityTimer()
+            self.resetInactivityTimer()
+        }
+        
+        // Отслеживание движения мыши с зажатой левой кнопкой для трека
+        leftMouseDraggedMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDragged]
+        ) { [weak self] event in
+            guard let self = self else { return }
+            if CursorSettings.shared.cursorTrailEnabled && self.isLeftButtonPressed {
+                let location = NSEvent.mouseLocation
+                self.addTrailPoint(location)
+            }
         }
         
         // Отслеживание нажатия колесика для комбинации с правой кнопкой и визуального эффекта
@@ -961,6 +1002,22 @@ final class CursorHighlighter {
             
             updatePositionToMouse()
         }
+        
+        // Обновляем трек при изменении режима glowing
+        if CursorSettings.shared.cursorTrailEnabled {
+            trailWindow?.contentView?.needsDisplay = true
+        }
+    }
+    
+    @objc private func cursorTrailEnabledChanged() {
+        if CursorSettings.shared.cursorTrailEnabled {
+            // Если режим трека включен, создаем окно трека
+            createTrailWindowIfNeeded()
+        } else {
+            // Если режим трека выключен, очищаем и скрываем окно трека
+            trailWindow?.clearTrails()
+            trailWindow?.endTrail()
+        }
     }
     
     private func showPencilSettingsPanel() {
@@ -1034,5 +1091,60 @@ final class CursorHighlighter {
         
         panel.contentView = settingsView
         self.pencilSettingsWindow = panel
+    }
+    
+    // MARK: - Trail Management
+    
+    private func createTrailWindowIfNeeded() {
+        if trailWindow == nil {
+            // Создаем окно на весь экран
+            let screens = NSScreen.screens
+            var maxRect = NSRect.zero
+            for screen in screens {
+                maxRect = maxRect.union(screen.frame)
+            }
+            
+            let window = TrailWindow(
+                contentRect: maxRect,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            
+            // Убеждаемся, что окно видимо
+            window.orderFrontRegardless()
+            window.makeKeyAndOrderFront(nil)
+            self.trailWindow = window
+        } else {
+            // Убеждаемся, что окно видимо, если оно уже существует
+            trailWindow?.orderFrontRegardless()
+        }
+    }
+    
+    private func startTrail(at point: NSPoint) {
+        createTrailWindowIfNeeded()
+        guard let trailWindow = trailWindow else { return }
+        // Преобразуем глобальные координаты в координаты окна трека
+        // NSEvent.mouseLocation использует систему координат где (0,0) в левом нижнем углу основного экрана
+        // NSWindow.frame также использует эту систему координат
+        let windowPoint = NSPoint(
+            x: point.x - trailWindow.frame.origin.x,
+            y: point.y - trailWindow.frame.origin.y
+        )
+        trailWindow.startTrail(at: windowPoint)
+    }
+    
+    private func addTrailPoint(_ point: NSPoint) {
+        guard let trailWindow = trailWindow else { return }
+        // Преобразуем глобальные координаты в координаты окна трека
+        let windowPoint = NSPoint(
+            x: point.x - trailWindow.frame.origin.x,
+            y: point.y - trailWindow.frame.origin.y
+        )
+        trailWindow.addTrailPoint(windowPoint)
+    }
+    
+    private func endTrail() {
+        trailWindow?.endTrail()
     }
 }

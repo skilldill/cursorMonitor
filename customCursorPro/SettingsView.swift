@@ -224,6 +224,14 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                     .disabled(CursorSettings.shared.cursorGlowEnabled) // Отключаем если включен режим свечения
                 }
+                
+                SettingRow(label: "Leave Trail:") {
+                    Toggle("", isOn: Binding(
+                        get: { CursorSettings.shared.cursorTrailEnabled },
+                        set: { CursorSettings.shared.cursorTrailEnabled = $0 }
+                    ))
+                    .toggleStyle(.switch)
+                }
             }
             .padding(16)
             .background(
@@ -362,7 +370,15 @@ struct SettingsView: View {
             settings.objectWillChange.send()
         }
         
-        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12]
+        let observer13 = NotificationCenter.default.addObserver(
+            forName: .cursorTrailEnabledChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            settings.objectWillChange.send()
+        }
+        
+        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12, observer13]
     }
     
     private func removeNotifications() {
