@@ -134,6 +134,12 @@ final class CursorHighlighter {
             name: .cursorTrailEnabledChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(inactivityTimeoutChanged),
+            name: .inactivityTimeoutChanged,
+            object: nil
+        )
     }
     
     @objc private func sizeChanged() {
@@ -912,7 +918,8 @@ final class CursorHighlighter {
         
         // Запускаем таймер только если включена настройка скрытия при неактивности
         if CursorSettings.shared.hideWhenInactive {
-            inactivityTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+            let timeout = CursorSettings.shared.inactivityTimeout
+            inactivityTimer = Timer.scheduledTimer(withTimeInterval: timeout, repeats: false) { [weak self] _ in
                 self?.hideCursorAnimated()
             }
         }
@@ -1032,6 +1039,13 @@ final class CursorHighlighter {
                 trailWindow.endTrail()
             }
             trailWindows.removeAll()
+        }
+    }
+    
+    @objc private func inactivityTimeoutChanged() {
+        // При изменении таймаута перезапускаем таймер, если он активен
+        if CursorSettings.shared.hideWhenInactive {
+            resetInactivityTimer()
         }
     }
     

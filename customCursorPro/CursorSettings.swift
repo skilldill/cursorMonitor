@@ -149,6 +149,7 @@ class CursorSettings {
     private let cursorTrailEnabledKey = "cursorTrailEnabled"
     private let trailLineWidthKey = "trailLineWidth"
     private let trailFadeDurationKey = "trailFadeDuration"
+    private let inactivityTimeoutKey = "inactivityTimeout"
     
     var menuTheme: MenuTheme {
         get {
@@ -385,6 +386,20 @@ class CursorSettings {
         }
     }
     
+    var inactivityTimeout: TimeInterval {
+        get {
+            let value = UserDefaults.standard.double(forKey: inactivityTimeoutKey)
+            if value > 0 {
+                return value
+            }
+            return 0.5 // По умолчанию 0.5 секунды
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: inactivityTimeoutKey)
+            NotificationCenter.default.post(name: .inactivityTimeoutChanged, object: nil)
+        }
+    }
+    
     var cursorGlowEnabled: Bool {
         get {
             // Проверяем, установлено ли значение (по умолчанию false)
@@ -513,6 +528,9 @@ class CursorSettings {
         // Скрывать при неактивности
         UserDefaults.standard.set(true, forKey: hideWhenInactiveKey)
         
+        // Таймаут неактивности
+        UserDefaults.standard.set(0.5, forKey: inactivityTimeoutKey)
+        
         // Эффект свечения
         UserDefaults.standard.set(false, forKey: cursorGlowEnabledKey)
         
@@ -544,6 +562,7 @@ class CursorSettings {
         NotificationCenter.default.post(name: .outerLineWidthChanged, object: nil)
         NotificationCenter.default.post(name: .cursorShadowBrightnessChanged, object: nil)
         NotificationCenter.default.post(name: .hideWhenInactiveChanged, object: nil)
+        NotificationCenter.default.post(name: .inactivityTimeoutChanged, object: nil)
         NotificationCenter.default.post(name: .cursorGlowEnabledChanged, object: nil)
         NotificationCenter.default.post(name: .cursorGradientEnabledChanged, object: nil)
         NotificationCenter.default.post(name: .cursorTrailEnabledChanged, object: nil)
@@ -580,6 +599,7 @@ extension Notification.Name {
     static let cursorTrailEnabledChanged = Notification.Name("cursorTrailEnabledChanged")
     static let trailLineWidthChanged = Notification.Name("trailLineWidthChanged")
     static let trailFadeDurationChanged = Notification.Name("trailFadeDurationChanged")
+    static let inactivityTimeoutChanged = Notification.Name("inactivityTimeoutChanged")
     static let cursorPositionUpdate = Notification.Name("cursorPositionUpdate")
 }
 

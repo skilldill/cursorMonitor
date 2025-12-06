@@ -223,6 +223,26 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                 }
                 
+                if CursorSettings.shared.hideWhenInactive {
+                    SettingRow(label: L("settings.inactivityTimeout")) {
+                        HStack(spacing: 12) {
+                            CustomSlider(
+                                value: Binding(
+                                    get: { Double(CursorSettings.shared.inactivityTimeout) },
+                                    set: { CursorSettings.shared.inactivityTimeout = $0 }
+                                ),
+                                in: 0.5...10.0,
+                                step: 0.1
+                            )
+                            
+                            Text(String(format: "%.1f s", CursorSettings.shared.inactivityTimeout))
+                                .frame(width: 60, alignment: .trailing)
+                                .foregroundColor(settings.textColor)
+                                .monospacedDigit()
+                        }
+                    }
+                }
+                
                 SettingRow(label: L("settings.glowEffect")) {
                     Toggle("", isOn: Binding(
                         get: { CursorSettings.shared.cursorGlowEnabled },
@@ -509,7 +529,23 @@ struct SettingsView: View {
             settings.objectWillChange.send()
         }
         
-        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12, observer13, observer14, observer15, observer16]
+        let observer17 = NotificationCenter.default.addObserver(
+            forName: .hideWhenInactiveChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            settings.objectWillChange.send()
+        }
+        
+        let observer18 = NotificationCenter.default.addObserver(
+            forName: .inactivityTimeoutChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            settings.objectWillChange.send()
+        }
+        
+        notificationObservers = [observer1, observer2, observer3, observer4, observer5, observer6, observer7, observer8, observer9, observer10, observer11, observer12, observer13, observer14, observer15, observer16, observer17, observer18]
     }
     
     private func removeNotifications() {
