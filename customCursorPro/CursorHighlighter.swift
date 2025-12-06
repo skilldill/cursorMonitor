@@ -556,7 +556,7 @@ final class CursorHighlighter {
         guard let menuWindow = menuWindow else { return }
         
         // Позиционируем меню справа от курсора (горизонтальная раскладка)
-        let menuWidth: CGFloat = 176
+        let menuWidth: CGFloat = 240
         let menuHeight: CGFloat = 80
         let shadowPadding: CGFloat = 20 // Отступ для тени
         let totalWidth = menuWidth + shadowPadding * 2
@@ -663,7 +663,7 @@ final class CursorHighlighter {
     }
     
     private func createMenuWindow() {
-        let menuWidth: CGFloat = 176 // Уменьшили ширину, так как теперь 2 кнопки вместо 3
+        let menuWidth: CGFloat = 240 // Ширина для 3 кнопок
         let menuHeight: CGFloat = 80
         let shadowPadding: CGFloat = 20 // Отступ для тени
         
@@ -700,6 +700,10 @@ final class CursorHighlighter {
             self?.startPencil()
         }
         menuView.onTrailToggle = { [weak self] in
+            // Переключение уже произошло в SwiftUI view
+            // Здесь можно добавить дополнительную логику, если нужно
+        }
+        menuView.onGlowToggle = { [weak self] in
             // Переключение уже произошло в SwiftUI view
             // Здесь можно добавить дополнительную логику, если нужно
         }

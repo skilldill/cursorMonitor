@@ -4,9 +4,11 @@ import Cocoa
 struct MenuViewSwiftUI: View {
     @ObservedObject private var settings = CursorSettingsObservable()
     @State private var trailEnabled = CursorSettings.shared.cursorTrailEnabled
+    @State private var glowEnabled = CursorSettings.shared.cursorGlowEnabled
     
     var onPencilClick: (() -> Void)?
     var onTrailToggle: (() -> Void)?
+    var onGlowToggle: (() -> Void)?
     
     var body: some View {
         HStack(spacing: 12) {
@@ -30,6 +32,19 @@ struct MenuViewSwiftUI: View {
                     onTrailToggle?()
                 }
             )
+            
+            // Кнопка режима свечения
+            MenuButton(
+                icon: "sparkles",
+                opacity: glowEnabled ? 1.0 : 0.5,
+                isActive: glowEnabled,
+                action: {
+                    let newValue = !CursorSettings.shared.cursorGlowEnabled
+                    CursorSettings.shared.cursorGlowEnabled = newValue
+                    glowEnabled = newValue
+                    onGlowToggle?()
+                }
+            )
         }
         .padding(16)
         .background(
@@ -37,9 +52,12 @@ struct MenuViewSwiftUI: View {
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(settings.isDark ? 0.3 : 0.15), radius: 10, x: 0, y: -2)
         )
-        .frame(width: 176, height: 80)
+        .frame(width: 240, height: 80)
         .onReceive(NotificationCenter.default.publisher(for: .cursorTrailEnabledChanged)) { _ in
             trailEnabled = CursorSettings.shared.cursorTrailEnabled
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cursorGlowEnabledChanged)) { _ in
+            glowEnabled = CursorSettings.shared.cursorGlowEnabled
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuThemeChanged)) { _ in
             // Обновляем view при изменении темы
@@ -132,6 +150,12 @@ class MenuViewWrapper: NSView {
         }
     }
     
+    var onGlowToggle: (() -> Void)? {
+        didSet {
+            updateHostingView()
+        }
+    }
+    
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupView()
@@ -179,7 +203,8 @@ class MenuViewWrapper: NSView {
         // Создаем новый SwiftUI view
         let menuView = MenuViewSwiftUI(
             onPencilClick: onPencilClick,
-            onTrailToggle: onTrailToggle
+            onTrailToggle: onTrailToggle,
+            onGlowToggle: onGlowToggle
         )
         
         let hostingView = NSHostingView(rootView: menuView)
