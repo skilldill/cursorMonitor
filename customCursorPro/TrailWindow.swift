@@ -14,6 +14,7 @@ class TrailWindow: NSWindow {
     private var isDrawing = false
     private var currentPathPoints: [NSPoint] = [] // Текущий путь как массив глобальных точек
     private var completedPaths: [TrailPath] = [] // Завершенные пути с временными метками
+    var screenFrame: NSRect = .zero // Frame экрана для этого окна
     
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
@@ -231,11 +232,23 @@ class TrailView: NSView {
         
         // Рисуем все завершенные пути с fade-out эффектом
         let completedPaths = window.getCompletedPaths()
+        let screenFrame = window.screenFrame
+        
         for trailPath in completedPaths {
             let age = now.timeIntervalSince(trailPath.startTime)
             let alpha = max(0, 1.0 - (age / fadeDuration))
             
             if alpha > 0 && !trailPath.points.isEmpty {
+                // Расширяем frame экрана на толщину линии, чтобы включить точки на границах
+                let expandedFrame = screenFrame.insetBy(dx: -trailPath.lineWidth, dy: -trailPath.lineWidth)
+                
+                // Фильтруем точки, которые находятся в пределах этого экрана (включая границы)
+                let filteredPoints = trailPath.points.filter { point in
+                    expandedFrame.contains(point)
+                }
+                
+                guard !filteredPoints.isEmpty else { continue }
+                
                 // Создаем NSBezierPath из точек (как в карандаше)
                 let bezierPath = NSBezierPath()
                 bezierPath.lineWidth = trailPath.lineWidth
@@ -243,7 +256,7 @@ class TrailView: NSView {
                 bezierPath.lineJoinStyle = .round
                 
                 // Преобразуем точки из глобальных координат в локальные координаты окна
-                for (index, point) in trailPath.points.enumerated() {
+                for (index, point) in filteredPoints.enumerated() {
                     let localPoint = NSPoint(
                         x: point.x - windowFrame.origin.x,
                         y: point.y - windowFrame.origin.y
@@ -270,6 +283,17 @@ class TrailView: NSView {
         // Рисуем текущий путь, если он есть (без fade-out, так как он еще рисуется)
         let currentPathPoints = window.getCurrentPathPoints()
         if !currentPathPoints.isEmpty && window.getIsDrawing() {
+            // Расширяем frame экрана на толщину линии, чтобы включить точки на границах
+            let lineWidth = CursorSettings.shared.trailLineWidth
+            let expandedFrame = screenFrame.insetBy(dx: -lineWidth, dy: -lineWidth)
+            
+            // Фильтруем точки, которые находятся в пределах этого экрана (включая границы)
+            let filteredPoints = currentPathPoints.filter { point in
+                expandedFrame.contains(point)
+            }
+            
+            guard !filteredPoints.isEmpty else { return }
+            
             let bezierPath = NSBezierPath()
             bezierPath.lineWidth = CursorSettings.shared.trailLineWidth
             bezierPath.lineCapStyle = .round
@@ -279,7 +303,7 @@ class TrailView: NSView {
             let opacity = CursorSettings.shared.opacity
             
             // Преобразуем точки из глобальных координат в локальные координаты окна
-            for (index, point) in currentPathPoints.enumerated() {
+            for (index, point) in filteredPoints.enumerated() {
                 let localPoint = NSPoint(
                     x: point.x - windowFrame.origin.x,
                     y: point.y - windowFrame.origin.y

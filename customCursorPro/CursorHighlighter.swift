@@ -10,7 +10,7 @@ final class CursorHighlighter {
     private var notesViewWindow: NotesViewWindow?
     private var drawingWindow: DrawingWindow?
     private var pencilSettingsWindow: NSWindow?
-    private var trailWindow: TrailWindow?
+    private var trailWindows: [TrailWindow] = []
     private var mouseMoveMonitor: Any?
     private var clickDownMonitor: Any?
     private var clickUpMonitor: Any?
@@ -206,9 +206,9 @@ final class CursorHighlighter {
         isRunning = true
 
         createWindowIfNeeded()
-        // Создаем окно трека заранее, если режим трека включен
+        // Создаем окна трека заранее, если режим трека включен
         if CursorSettings.shared.cursorTrailEnabled {
-            createTrailWindowIfNeeded()
+            createTrailWindowsIfNeeded()
         }
         startMonitoring()
     }
@@ -259,8 +259,11 @@ final class CursorHighlighter {
         menuWindow?.orderOut(nil)
         drawingWindow?.stopDrawing()
         pencilSettingsWindow?.orderOut(nil)
-        trailWindow?.endTrail()
-        trailWindow?.orderOut(nil)
+        for trailWindow in trailWindows {
+            trailWindow.endTrail()
+            trailWindow.orderOut(nil)
+        }
+        trailWindows.removeAll()
         
         // Останавливаем таймер неактивности
         inactivityTimer?.invalidate()
@@ -1012,18 +1015,23 @@ final class CursorHighlighter {
         
         // Обновляем трек при изменении режима glowing
         if CursorSettings.shared.cursorTrailEnabled {
-            trailWindow?.contentView?.needsDisplay = true
+            for trailWindow in trailWindows {
+                trailWindow.contentView?.needsDisplay = true
+            }
         }
     }
     
     @objc private func cursorTrailEnabledChanged() {
         if CursorSettings.shared.cursorTrailEnabled {
-            // Если режим трека включен, создаем окно трека
-            createTrailWindowIfNeeded()
+            // Если режим трека включен, создаем окна трека
+            createTrailWindowsIfNeeded()
         } else {
-            // Если режим трека выключен, очищаем и скрываем окно трека
-            trailWindow?.clearTrails()
-            trailWindow?.endTrail()
+            // Если режим трека выключен, очищаем и скрываем окна трека
+            for trailWindow in trailWindows {
+                trailWindow.clearTrails()
+                trailWindow.endTrail()
+            }
+            trailWindows.removeAll()
         }
     }
     
@@ -1102,56 +1110,62 @@ final class CursorHighlighter {
     
     // MARK: - Trail Management
     
-    private func createTrailWindowIfNeeded() {
-        if trailWindow == nil {
-            // Создаем окно на весь экран
-            let screens = NSScreen.screens
-            var maxRect = NSRect.zero
-            for screen in screens {
-                maxRect = maxRect.union(screen.frame)
+    private func createTrailWindowsIfNeeded() {
+        // Если окна уже созданы, просто убеждаемся что они видимы
+        if !trailWindows.isEmpty {
+            for trailWindow in trailWindows {
+                trailWindow.orderFrontRegardless()
             }
+            return
+        }
+        
+        // Получаем все экраны
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return }
+        
+        // Создаем отдельное окно для каждого экрана
+        for screen in screens {
+            let screenFrame = screen.frame
             
             let window = TrailWindow(
-                contentRect: maxRect,
+                contentRect: screenFrame,
                 styleMask: [.borderless],
                 backing: .buffered,
                 defer: false
             )
             
+            // Сохраняем frame экрана для преобразования координат
+            window.screenFrame = screenFrame
+            
             // Убеждаемся, что окно видимо
             window.orderFrontRegardless()
             window.makeKeyAndOrderFront(nil)
-            self.trailWindow = window
-        } else {
-            // Убеждаемся, что окно видимо, если оно уже существует
-            trailWindow?.orderFrontRegardless()
+            trailWindows.append(window)
         }
     }
     
     private func startTrail(at point: NSPoint) {
-        createTrailWindowIfNeeded()
-        guard let trailWindow = trailWindow else { return }
-        // Преобразуем глобальные координаты в координаты окна трека
-        // NSEvent.mouseLocation использует систему координат где (0,0) в левом нижнем углу основного экрана
-        // NSWindow.frame также использует эту систему координат
-        let windowPoint = NSPoint(
-            x: point.x - trailWindow.frame.origin.x,
-            y: point.y - trailWindow.frame.origin.y
-        )
-        trailWindow.startTrail(at: windowPoint)
+        createTrailWindowsIfNeeded()
+        guard !trailWindows.isEmpty else { return }
+        
+        // Добавляем точку начала трека во все окна (точки хранятся в глобальных координатах)
+        for trailWindow in trailWindows {
+            trailWindow.startTrail(at: point)
+        }
     }
     
     private func addTrailPoint(_ point: NSPoint) {
-        guard let trailWindow = trailWindow else { return }
-        // Преобразуем глобальные координаты в координаты окна трека
-        let windowPoint = NSPoint(
-            x: point.x - trailWindow.frame.origin.x,
-            y: point.y - trailWindow.frame.origin.y
-        )
-        trailWindow.addTrailPoint(windowPoint)
+        guard !trailWindows.isEmpty else { return }
+        
+        // Добавляем точку трека во все окна (точки хранятся в глобальных координатах)
+        for trailWindow in trailWindows {
+            trailWindow.addTrailPoint(point)
+        }
     }
     
     private func endTrail() {
-        trailWindow?.endTrail()
+        for trailWindow in trailWindows {
+            trailWindow.endTrail()
+        }
     }
 }
