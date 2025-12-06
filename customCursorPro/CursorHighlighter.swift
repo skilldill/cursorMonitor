@@ -140,6 +140,12 @@ final class CursorHighlighter {
             name: .inactivityTimeoutChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(cursorEnabledChanged),
+            name: .cursorEnabledChanged,
+            object: nil
+        )
     }
     
     @objc private func sizeChanged() {
@@ -556,7 +562,7 @@ final class CursorHighlighter {
         guard let menuWindow = menuWindow else { return }
         
         // Позиционируем меню справа от курсора (горизонтальная раскладка)
-        let menuWidth: CGFloat = 240
+        let menuWidth: CGFloat = 304
         let menuHeight: CGFloat = 80
         let shadowPadding: CGFloat = 20 // Отступ для тени
         let totalWidth = menuWidth + shadowPadding * 2
@@ -663,7 +669,7 @@ final class CursorHighlighter {
     }
     
     private func createMenuWindow() {
-        let menuWidth: CGFloat = 240 // Ширина для 3 кнопок
+        let menuWidth: CGFloat = 304 // Ширина для 4 кнопок
         let menuHeight: CGFloat = 80
         let shadowPadding: CGFloat = 20 // Отступ для тени
         
@@ -704,6 +710,10 @@ final class CursorHighlighter {
             // Здесь можно добавить дополнительную логику, если нужно
         }
         menuView.onGlowToggle = { [weak self] in
+            // Переключение уже произошло в SwiftUI view
+            // Здесь можно добавить дополнительную логику, если нужно
+        }
+        menuView.onCursorToggle = { [weak self] in
             // Переключение уже произошло в SwiftUI view
             // Здесь можно добавить дополнительную логику, если нужно
         }
@@ -1051,6 +1061,11 @@ final class CursorHighlighter {
         if CursorSettings.shared.hideWhenInactive {
             resetInactivityTimer()
         }
+    }
+    
+    @objc private func cursorEnabledChanged() {
+        // Обновляем отображение курсора при изменении настройки включения/выключения
+        highlightView?.needsDisplay = true
     }
     
     private func showPencilSettingsPanel() {

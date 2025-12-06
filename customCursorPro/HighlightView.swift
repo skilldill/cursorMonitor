@@ -167,6 +167,12 @@ final class HighlightView: NSView {
             name: .cursorGradientEnabledChanged,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(cursorEnabledChanged),
+            name: .cursorEnabledChanged,
+            object: nil
+        )
     }
     
     @objc private func colorChanged() {
@@ -219,6 +225,10 @@ final class HighlightView: NSView {
         needsDisplay = true
     }
     
+    @objc private func cursorEnabledChanged() {
+        needsDisplay = true
+    }
+    
     deinit {
         NotificationCenter.default.removeObserver(self)
         animationTimer?.invalidate()
@@ -241,6 +251,7 @@ final class HighlightView: NSView {
 
         // Режим карандаша - маленькая окружность
         if isPencilMode {
+            let effectiveOpacity = CursorSettings.shared.cursorEnabled ? CursorSettings.shared.pencilOpacity : 0.0
             let center = CGPoint(x: bounds.midX, y: bounds.midY)
             // Радиус равен половине толщины карандаша из настроек
             let radius = CursorSettings.shared.pencilLineWidth / 2
@@ -248,12 +259,12 @@ final class HighlightView: NSView {
             circlePath.addArc(center: center, radius: radius, startAngle: 0, endAngle: .pi * 2, clockwise: false)
             
             ctx.addPath(circlePath)
-            ctx.setFillColor(pencilModeColor.withAlphaComponent(CursorSettings.shared.pencilOpacity).cgColor)
+            ctx.setFillColor(pencilModeColor.withAlphaComponent(effectiveOpacity).cgColor)
             ctx.fillPath()
             
             // Обводка для лучшей видимости
             ctx.addPath(circlePath)
-            ctx.setStrokeColor(pencilModeColor.withAlphaComponent(0.8).cgColor)
+            ctx.setStrokeColor(pencilModeColor.withAlphaComponent(0.8 * effectiveOpacity).cgColor)
             ctx.setLineWidth(1.5)
             ctx.strokePath()
             return
@@ -284,7 +295,12 @@ final class HighlightView: NSView {
             interpolatedColor = NSColor(deviceRed: r, green: g, blue: b, alpha: a)
         }
         
-        let base = interpolatedColor.withAlphaComponent(opacity)
+        // Применяем opacity, учитывая настройку cursorEnabled
+        let effectiveOpacity = CursorSettings.shared.cursorEnabled ? opacity : 0.0
+        let base = interpolatedColor.withAlphaComponent(effectiveOpacity)
+        
+        // Сохраняем effectiveOpacity для использования в методах рисования
+        let currentEffectiveOpacity = effectiveOpacity
 
         // Параметры линий
         let outerLineWidth: CGFloat = CursorSettings.shared.outerLineWidth
@@ -311,17 +327,17 @@ final class HighlightView: NSView {
         // Рисуем форму в зависимости от выбранной
         switch shape {
         case .squircle:
-            drawSquircle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+            drawSquircle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth, effectiveOpacity: currentEffectiveOpacity)
         case .circle:
-            drawCircle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+            drawCircle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth, effectiveOpacity: currentEffectiveOpacity)
         case .hexagon:
-            drawHexagon(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+            drawHexagon(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth, effectiveOpacity: currentEffectiveOpacity)
         case .triangle:
-            drawTriangle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+            drawTriangle(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth, effectiveOpacity: currentEffectiveOpacity)
         case .rhombus:
-            drawRhombus(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+            drawRhombus(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth, effectiveOpacity: currentEffectiveOpacity)
         case .pentagon:
-            drawPentagon(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth)
+            drawPentagon(ctx: ctx, size: size, base: base, outerLineWidth: outerLineWidth, innerLineWidth: innerLineWidth, effectiveOpacity: currentEffectiveOpacity)
         }
 
         ctx.restoreGState()
@@ -599,7 +615,7 @@ final class HighlightView: NSView {
         }
     }
     
-    private func drawSquircle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+    private func drawSquircle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat, effectiveOpacity: CGFloat) {
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
         let cornerRadius = size / 3.5 // Сильно скругленные углы
         
@@ -640,7 +656,7 @@ final class HighlightView: NSView {
         drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
     }
     
-    private func drawCircle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+    private func drawCircle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat, effectiveOpacity: CGFloat) {
         // Используем rounded rect с большим cornerRadius для более мягкого вида
         let rect = CGRect(x: -size / 2, y: -size / 2, width: size, height: size)
         let cornerRadius = size / 2 // Максимальное скругление для круга
@@ -682,7 +698,7 @@ final class HighlightView: NSView {
         drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
     }
     
-    private func drawHexagon(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+    private func drawHexagon(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat, effectiveOpacity: CGFloat) {
         // Увеличиваем радиус для более длинных граней (примерно на 20%)
         let radius = size / 2 * 1.2
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
@@ -692,19 +708,19 @@ final class HighlightView: NSView {
         
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
-            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: effectiveOpacity)
         } else if isGradientEnabled() {
             // Если включен режим градиента, рисуем градиентный обводку
             drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
-            if shadowBrightness > 0 {
+            if shadowBrightness > 0 && effectiveOpacity > 0 {
                 let shadowColor = CursorSettings.shared.effectiveShadowColor.color
                 ctx.setShadow(
                     offset: CGSize(width: 0, height: 0),
                     blur: 15.0, // Радиус размытия для легкой подсветки
-                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                    color: shadowColor.withAlphaComponent(shadowBrightness * effectiveOpacity).cgColor
                 )
             }
             
@@ -721,7 +737,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRadius = radius - innerInset
         let innerPath = createRoundedHexagonPath(radius: innerRadius, cornerRadius: max(cornerRadius - innerInset / 2, 0))
-        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35 * effectiveOpacity), lineWidth: innerLineWidth)
     }
     
     private func createRoundedHexagonPath(radius: CGFloat, cornerRadius: CGFloat) -> CGMutablePath {
@@ -768,7 +784,7 @@ final class HighlightView: NSView {
         return path
     }
     
-    private func drawTriangle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+    private func drawTriangle(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat, effectiveOpacity: CGFloat) {
         // Увеличиваем радиус для более длинных сторон (примерно на 20%)
         let radius = size / 2 * 1.2
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
@@ -778,19 +794,19 @@ final class HighlightView: NSView {
         
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
-            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: effectiveOpacity)
         } else if isGradientEnabled() {
             // Если включен режим градиента, рисуем градиентный обводку
             drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
-            if shadowBrightness > 0 {
+            if shadowBrightness > 0 && effectiveOpacity > 0 {
                 let shadowColor = CursorSettings.shared.effectiveShadowColor.color
                 ctx.setShadow(
                     offset: CGSize(width: 0, height: 0),
                     blur: 15.0, // Радиус размытия для легкой подсветки
-                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                    color: shadowColor.withAlphaComponent(shadowBrightness * effectiveOpacity).cgColor
                 )
             }
             
@@ -807,7 +823,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRadius = radius - innerInset
         let innerPath = createRoundedTrianglePath(radius: innerRadius, cornerRadius: max(cornerRadius - innerInset / 2, 0))
-        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35 * effectiveOpacity), lineWidth: innerLineWidth)
     }
     
     private func createRoundedTrianglePath(radius: CGFloat, cornerRadius: CGFloat) -> CGMutablePath {
@@ -855,7 +871,7 @@ final class HighlightView: NSView {
         return path
     }
     
-    private func drawPentagon(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+    private func drawPentagon(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat, effectiveOpacity: CGFloat) {
         // Увеличиваем радиус для более длинных граней (примерно на 20%)
         let radius = size / 2 * 1.2
         let cornerRadius = size / 4.5 // Увеличенное скругление углов, пропорционально размеру
@@ -865,19 +881,19 @@ final class HighlightView: NSView {
         
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
-            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: effectiveOpacity)
         } else if isGradientEnabled() {
             // Если включен режим градиента, рисуем градиентный обводку
             drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
-            if shadowBrightness > 0 {
+            if shadowBrightness > 0 && effectiveOpacity > 0 {
                 let shadowColor = CursorSettings.shared.effectiveShadowColor.color
                 ctx.setShadow(
                     offset: CGSize(width: 0, height: 0),
                     blur: 15.0, // Радиус размытия для легкой подсветки
-                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                    color: shadowColor.withAlphaComponent(shadowBrightness * effectiveOpacity).cgColor
                 )
             }
             
@@ -894,7 +910,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRadius = radius - innerInset
         let innerPath = createRoundedPentagonPath(radius: innerRadius, cornerRadius: max(cornerRadius - innerInset / 2, 0))
-        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35 * effectiveOpacity), lineWidth: innerLineWidth)
     }
     
     private func createRoundedPentagonPath(radius: CGFloat, cornerRadius: CGFloat) -> CGMutablePath {
@@ -941,7 +957,7 @@ final class HighlightView: NSView {
         return path
     }
     
-    private func drawRhombus(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat) {
+    private func drawRhombus(ctx: CGContext, size: CGFloat, base: NSColor, outerLineWidth: CGFloat, innerLineWidth: CGFloat, effectiveOpacity: CGFloat) {
         // Поворачиваем на 45° для ромба
         ctx.rotate(by: .pi / 4)
         
@@ -953,19 +969,19 @@ final class HighlightView: NSView {
         
         if isGlowEnabled() {
             // Если включен режим свечения, используем эффект как у карандаша
-            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: opacity)
+            drawGlowingStroke(ctx: ctx, path: outerPath, color: base, lineWidth: outerLineWidth, opacity: effectiveOpacity)
         } else if isGradientEnabled() {
             // Если включен режим градиента, рисуем градиентный обводку
             drawGradientStroke(ctx: ctx, path: outerPath, baseColor: base, lineWidth: outerLineWidth)
         } else {
             // Настраиваем тень для легкой подсветки внешнего контура
             let shadowBrightness = CursorSettings.shared.shadowBrightness
-            if shadowBrightness > 0 {
+            if shadowBrightness > 0 && effectiveOpacity > 0 {
                 let shadowColor = CursorSettings.shared.effectiveShadowColor.color
                 ctx.setShadow(
                     offset: CGSize(width: 0, height: 0),
                     blur: 15.0, // Радиус размытия для легкой подсветки
-                    color: shadowColor.withAlphaComponent(shadowBrightness).cgColor
+                    color: shadowColor.withAlphaComponent(shadowBrightness * effectiveOpacity).cgColor
                 )
             }
             
@@ -982,7 +998,7 @@ final class HighlightView: NSView {
         let innerInset: CGFloat = 8
         let innerRect = rect.insetBy(dx: innerInset, dy: innerInset)
         let innerPath = CGPath(roundedRect: innerRect, cornerWidth: max(cornerRadius - innerInset / 2, 0), cornerHeight: max(cornerRadius - innerInset / 2, 0), transform: nil)
-        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35), lineWidth: innerLineWidth)
+        drawInnerRing(ctx: ctx, path: innerPath, color: base.withAlphaComponent(0.35 * effectiveOpacity), lineWidth: innerLineWidth)
     }
     
     // MARK: - Обработка кликов

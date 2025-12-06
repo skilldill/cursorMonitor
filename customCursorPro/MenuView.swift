@@ -5,10 +5,12 @@ struct MenuViewSwiftUI: View {
     @ObservedObject private var settings = CursorSettingsObservable()
     @State private var trailEnabled = CursorSettings.shared.cursorTrailEnabled
     @State private var glowEnabled = CursorSettings.shared.cursorGlowEnabled
+    @State private var cursorEnabled = CursorSettings.shared.cursorEnabled
     
     var onPencilClick: (() -> Void)?
     var onTrailToggle: (() -> Void)?
     var onGlowToggle: (() -> Void)?
+    var onCursorToggle: (() -> Void)?
     
     var body: some View {
         HStack(spacing: 12) {
@@ -45,6 +47,19 @@ struct MenuViewSwiftUI: View {
                     onGlowToggle?()
                 }
             )
+            
+            // Кнопка включения/выключения курсора
+            MenuButton(
+                icon: "eye",
+                opacity: cursorEnabled ? 1.0 : 0.5,
+                isActive: cursorEnabled,
+                action: {
+                    let newValue = !CursorSettings.shared.cursorEnabled
+                    CursorSettings.shared.cursorEnabled = newValue
+                    cursorEnabled = newValue
+                    onCursorToggle?()
+                }
+            )
         }
         .padding(16)
         .background(
@@ -52,12 +67,15 @@ struct MenuViewSwiftUI: View {
                 .cornerRadius(16)
                 .shadow(color: Color.black.opacity(settings.isDark ? 0.3 : 0.15), radius: 10, x: 0, y: -2)
         )
-        .frame(width: 240, height: 80)
+        .frame(width: 304, height: 80)
         .onReceive(NotificationCenter.default.publisher(for: .cursorTrailEnabledChanged)) { _ in
             trailEnabled = CursorSettings.shared.cursorTrailEnabled
         }
         .onReceive(NotificationCenter.default.publisher(for: .cursorGlowEnabledChanged)) { _ in
             glowEnabled = CursorSettings.shared.cursorGlowEnabled
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cursorEnabledChanged)) { _ in
+            cursorEnabled = CursorSettings.shared.cursorEnabled
         }
         .onReceive(NotificationCenter.default.publisher(for: .menuThemeChanged)) { _ in
             // Обновляем view при изменении темы
@@ -156,6 +174,12 @@ class MenuViewWrapper: NSView {
         }
     }
     
+    var onCursorToggle: (() -> Void)? {
+        didSet {
+            updateHostingView()
+        }
+    }
+    
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupView()
@@ -204,7 +228,8 @@ class MenuViewWrapper: NSView {
         let menuView = MenuViewSwiftUI(
             onPencilClick: onPencilClick,
             onTrailToggle: onTrailToggle,
-            onGlowToggle: onGlowToggle
+            onGlowToggle: onGlowToggle,
+            onCursorToggle: onCursorToggle
         )
         
         let hostingView = NSHostingView(rootView: menuView)
